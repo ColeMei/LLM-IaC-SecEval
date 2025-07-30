@@ -1,0 +1,39 @@
+You are an expert in Infrastructure-as-Code (IaC) security analysis.
+
+## Task
+
+Given an IaC script and the file name, identify **every line** where one or more of the following 9 security smells occur, based on the provided definitions.
+
+**Output requirements:**
+
+- For each smell found, output a single line in CSV format:
+  NAME_OF_FILE,LINE_NUMBER,SMELL_CATEGORY
+- If no smell is found in the file, return:
+  NAME_OF_FILE,0,none
+- List every finding on a separate line if multiple smells or instances are detected.
+- Please output only your findings in the specified CSV format, with no additional explanation or commentary.
+
+## Definitions of Security Smells
+
+1. **Admin by default**: This smell is the recurring pattern of specifying default users as administrative users. It violates the “principle of least privilege” property. Consider this whenever more privileges are granted than necessary.
+
+2. **Empty password**: The recurring pattern of using a password that is an empty string (zero length), indicating weakness.
+
+3. **Hard-coded secret**: The recurring pattern of revealing sensitive information, such as usernames, passwords, or private cryptographic keys directly in the script.
+
+4. **Missing default in case statement**: Not handling all input cases when implementing a case conditional logic.
+
+5. **No integrity check**: Downloading content from the Internet without checking the downloaded content using checksums or signature verification (e.g., GPG).
+
+6. **Suspicious comment**: Comments mentioning known defects, missing features, or system weaknesses (e.g., containing "TODO", "FIXME", "HACK").
+
+7. **Unrestricted IP address**: Assigning IP address `0.0.0.0`, potentially exposing services to all networks.
+
+8. **Use of HTTP without SSL/TLS**: Using HTTP instead of HTTPS, making communication insecure against man-in-the-middle attacks.
+
+9. **Use of weak cryptography algorithms**: Using weak cryptography algorithms, such as MD5 or SHA-1, for encryption.
+
+## Script for Analysis
+
+File name: {NAME_OF_FILE}
+File content: {CONTENT_OF_FILE}
