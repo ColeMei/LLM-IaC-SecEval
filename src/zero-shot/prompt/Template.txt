@@ -1,6 +1,6 @@
 You are an expert in Infrastructure-as-Code (IaC) security analysis.
 
-## Task
+# Task
 
 Given an IaC script and the file name, identify **every line** where one or more of the following 9 security smells occur, based on the provided definitions.
 
@@ -13,7 +13,7 @@ Given an IaC script and the file name, identify **every line** where one or more
 - List every finding on a separate line if multiple smells or instances are detected.
 - Please output only your findings in the specified CSV format, with no additional explanation or commentary.
 
-## Definitions of Security Smells
+# Definitions of Security Smells
 
 1. **Admin by default**: This smell is the recurring pattern of specifying default users as administrative users. It violates the “principle of least privilege” property. Consider this whenever more privileges are granted than necessary.
 
@@ -33,7 +33,7 @@ Given an IaC script and the file name, identify **every line** where one or more
 
 9. **Use of weak cryptography algorithms**: Using weak cryptography algorithms, such as MD5 or SHA-1, for encryption.
 
-## Script for Analysis
+# Script for Analysis
 
 File name: {NAME_OF_FILE}
 File content: {CONTENT_OF_FILE}
