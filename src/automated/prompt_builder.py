@@ -14,7 +14,7 @@ class PromptBuilder:
     
     def _load_security_smells_context(self) -> str:
         """Load security smells definitions as background context"""
-        smells_file = config.data_dir / "smells-description.txt"
+        smells_file = config.prompts_dir / "Template_security_smells_definitions_only.txt"
         if smells_file.exists():
             return smells_file.read_text(encoding='utf-8')
         else:
@@ -37,6 +37,26 @@ class PromptBuilder:
             else:
                 raise FileNotFoundError(f"No instruction template file found: tried {template_file} and {detailed_template_file}")
 
+    def _detect_iac_language(self, filename: str) -> str:
+        """Detect IaC language based on file extension"""
+        file_extension = Path(filename).suffix.lower()
+        
+        language_map = {
+            '.tf': 'Terraform',
+            '.hcl': 'Terraform',
+            '.yml': 'Ansible/YAML',
+            '.yaml': 'Ansible/YAML',
+            '.pp': 'Puppet',
+            '.py': 'Python',
+            '.ps1': 'PowerShell',
+            '.sh': 'Shell/Bash',
+            '.json': 'JSON',
+            '.dockerfile': 'Docker',
+            '.docker': 'Docker'
+        }
+        
+        return language_map.get(file_extension, 'Unknown')
+    
     def build_prompt(self, filename: str, file_content: str, include_context: bool = True) -> str:
         """
         Build a complete prompt for LLM evaluation
@@ -50,25 +70,35 @@ class PromptBuilder:
             Complete prompt string
         """
         prompt_parts = []
+        iac_language = self._detect_iac_language(filename)
         
         if include_context:
             # Modular approach: Separate background context + instructions
-            prompt_parts.append("# Background Context")
+            prompt_parts.append("# Definitions of Security Smells")
             prompt_parts.append(self.background_context)
             prompt_parts.append("")
             prompt_parts.append(self.instruction_template)
+            prompt_parts.append("")
+            prompt_parts.append(f"# IaC Language: {iac_language}")
+            prompt_parts.append(f"Please analyze the following {iac_language} script for security smells.")
         else:
             # Full context approach: Use complete template with embedded definitions
             full_template_file = config.prompts_dir / "Template_detailed.txt"
             if full_template_file.exists():
                 full_template = full_template_file.read_text(encoding='utf-8').strip()
                 prompt_parts.append(full_template)
+                prompt_parts.append("")
+                prompt_parts.append(f"# IaC Language: {iac_language}")
+                prompt_parts.append(f"Please analyze the following {iac_language} script for security smells.")
             else:
                 # Fallback to modular if detailed template not found
-                prompt_parts.append("# Background Context")
+                prompt_parts.append("# Definitions of Security Smells")
                 prompt_parts.append(self.background_context)
                 prompt_parts.append("")
                 prompt_parts.append(self.instruction_template)
+                prompt_parts.append("")
+                prompt_parts.append(f"# IaC Language: {iac_language}")
+                prompt_parts.append(f"Please analyze the following {iac_language} script for security smells.")
         
         prompt_parts.append("")
         
