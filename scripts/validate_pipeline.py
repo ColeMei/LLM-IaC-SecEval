@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from automated.pipeline import LLMIaCPipeline
-from automated.ollama_client import OllamaClient
+from automated import create_client, SUPPORTED_CLIENTS
 from automated.file_processor import FileProcessor
 from automated.config import config
 
@@ -42,53 +42,61 @@ def test_file_processing():
         except Exception as e:
             print(f"  {tech}: Error - {e}")
 
-def test_ollama_connection():
-    """Test Ollama connection and model availability"""
-    print("Testing Ollama connection...")
+def test_client_connection(client_type):
+    """Test client connection and model availability"""
+    print(f"Testing {client_type.upper()} connection...")
     
-    client = OllamaClient()
-    
-    print(f"  Base URL: {client.base_url}")
-    print(f"  Model: {client.model_name}")
-    
-    # Test connection
-    available = client.is_available()
-    print(f"  Available: {'✓' if available else '✗'}")
-    
-    if not available:
-        print("  Attempting to list available models...")
-        models = client.list_models()
-        if models:
-            print(f"    Available models: {', '.join(models)}")
-        else:
-            print("    No models found or connection failed")
-            
-        # Try to pull the model
-        print(f"  Attempting to pull {client.model_name}...")
-        if client.pull_model():
-            print("    Model pulled successfully")
-        else:
-            print("    Failed to pull model")
-    
-    return available
+    try:
+        client = create_client(client_type)
+        
+        print(f"  Model: {client.model_name}")
+        
+        # Test connection
+        available = client.is_available()
+        print(f"  Available: {'✓' if available else '✗'}")
+        
+        if not available:
+            print("  Attempting to list available models...")
+            models = client.list_models()
+            if models:
+                print(f"    Available models: {', '.join(models[:5])}...")  # Show first 5
+            else:
+                print("    No models found or connection failed")
+                
+            # For Ollama, try to pull the model
+            if client_type == 'ollama' and hasattr(client, 'pull_model'):
+                print(f"  Attempting to pull {client.model_name}...")
+                if client.pull_model():
+                    print("    Model pulled successfully")
+                    available = client.is_available()  # Re-check after pull
+                else:
+                    print("    Failed to pull model")
+        
+        return available
+        
+    except Exception as e:
+        print(f"  Error creating {client_type} client: {e}")
+        if client_type == 'openai' and 'API key' in str(e):
+            print("    💡 Set OPENAI_API_KEY environment variable")
+        return False
 
-def test_single_file_processing():
-    """Test processing a single file end-to-end"""
-    print("Testing single file processing...")
+def test_single_file_processing(client_type, client_available):
+    """Test processing a single file end-to-end with specified client"""
+    print(f"Testing single file processing with {client_type.upper()}...")
     
-    # Initialize components
-    client = OllamaClient()
-    if not client.is_available():
-        print("  Skipping - Ollama not available")
+    if not client_available:
+        print(f"  Skipping - {client_type} not available")
         return False
     
-    pipeline = LLMIaCPipeline(model_client=client)
-    processor = FileProcessor()
-    
-    # Get first ansible file
     try:
+        # Initialize components
+        client = create_client(client_type)
+        pipeline = LLMIaCPipeline(model_client=client)
+        processor = FileProcessor()
+        
+        # Get first ansible file
         for file_info in processor.batch_process_files('ansible', limit=1):
-            print(f"  Processing: {file_info['filename']}")
+            print(f"  Processing: {file_info['filename']} with {client_type}")
             
             result = pipeline.run_single_file(
                 filename=file_info['filename'],
@@ -127,39 +135,56 @@ def main():
     print("-" * 30)
     test_file_processing()
     
-    # Test 2: Ollama connection
-    print("\n2. Ollama Connection Tests") 
+    # Test 2: Client connections
+    print("\n2. Client Connection Tests") 
     print("-" * 30)
-    ollama_available = test_ollama_connection()
+    client_results = {}
+    for client_type in SUPPORTED_CLIENTS:
+        client_results[client_type] = test_client_connection(client_type)
     
-    # Test 3: End-to-end processing (if Ollama available)
-    if ollama_available:
-        print("\n3. End-to-End Processing Test")
-        print("-" * 30)
-        e2e_success = test_single_file_processing()
-    else:
-        print("\n3. End-to-End Processing Test")
-        print("-" * 30)
-        print("  Skipped - Ollama not available")
-        e2e_success = False
+    # Test 3: End-to-end processing (test available clients)
+    print("\n3. End-to-End Processing Tests")
+    print("-" * 30)
+    e2e_results = {}
+    for client_type in SUPPORTED_CLIENTS:
+        e2e_results[client_type] = test_single_file_processing(client_type, client_results[client_type])
     
     # Summary
     print("\n" + "="*60)
     print("VALIDATION SUMMARY")
     print("="*60)
     print(f"  File processing: ✓")
-    print(f"  Ollama connection: {'✓' if ollama_available else '✗'}")
-    print(f"  End-to-end test: {'✓' if e2e_success else '✗'}")
     
-    if ollama_available and e2e_success:
-        print("\n🎉 All tests passed! Pipeline is ready to use.")
-        print(f"    Run: python scripts/run_evaluation.py --small-batch")
+    for client_type in SUPPORTED_CLIENTS:
+        connection_status = '✓' if client_results[client_type] else '✗'
+        e2e_status = '✓' if e2e_results[client_type] else '✗'
+        print(f"  {client_type.upper()} connection: {connection_status}")
+        print(f"  {client_type.upper()} end-to-end: {e2e_status}")
+    
+    # Determine overall success
+    any_client_working = any(e2e_results.values())
+    
+    if any_client_working:
+        working_clients = [client for client, success in e2e_results.items() if success]
+        print(f"\n🎉 Pipeline validated with {', '.join(working_clients).upper()} client(s)!")
+        print("    Ready to use:")
+        for client in working_clients:
+            print(f"      python scripts/run_evaluation.py --client {client} --small-batch")
         return 0
     else:
-        print("\n⚠️  Some tests failed. Check Ollama setup:")
-        print("    1. Install Ollama: https://ollama.ai")
-        print("    2. Start Ollama: ollama serve")
-        print("    3. Pull model: ollama pull codellama:7b")
+        print("\n⚠️  No clients working. Setup required:")
+        
+        if not client_results.get('ollama', False):
+            print("\n    Ollama setup:")
+            print("      1. Install Ollama: https://ollama.ai")
+            print("      2. Start Ollama: ollama serve") 
+            print("      3. Pull model: ollama pull codellama:7b")
+        
+        if not client_results.get('openai', False):
+            print("\n    OpenAI setup:")
+            print("      1. Get API key: https://platform.openai.com/api-keys")
+            print("      2. Set environment: export OPENAI_API_KEY='your-key'")
+        
         return 1
 
 if __name__ == "__main__":

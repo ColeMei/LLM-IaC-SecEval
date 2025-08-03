@@ -74,11 +74,30 @@ python scripts/run_evaluation.py --client openai --iac-tech ansible --limit 20
 
 ## Validation & Testing
 
-```bash
-# Validate setup
-python scripts/validate_pipeline.py
+### Complete Validation
 
-# Test specific clients
+```bash
+# Test all components + both clients
+python scripts/validate_pipeline.py
+```
+
+**Sample Output:**
+
+```
+VALIDATION SUMMARY
+  File processing: ✓
+  OLLAMA connection: ✓
+  OLLAMA end-to-end: ✓
+  OPENAI connection: ✗
+  OPENAI end-to-end: ✗
+
+🎉 Pipeline validated with OLLAMA client(s)!
+```
+
+### Individual Client Testing
+
+```bash
+# Test specific clients only
 python scripts/run_evaluation.py --client ollama --validate-only
 python scripts/run_evaluation.py --client openai --validate-only
 ```

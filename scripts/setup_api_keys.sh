@@ -66,6 +66,7 @@ fi
 
 echo
 echo "🚀 Setup complete! You can now run:"
+echo "   python scripts/validate_pipeline.py"
 echo "   python scripts/run_evaluation.py --client ollama --validate-only"
 echo "   python scripts/run_evaluation.py --client openai --validate-only"
 echo
