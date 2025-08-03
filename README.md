@@ -21,7 +21,6 @@ This project automates the evaluation of Large Language Models on Infrastructure
 ### **Key Features**
 
 - ✅ **Automated Pipeline**: From manual copy-paste to full automation
-- ✅ **Prompt Transparency**: See exactly what's sent to LLMs (`--show-prompts`)
 - ✅ **Multi-Technology Support**: Ansible, Chef, Puppet
 - ✅ **Comprehensive Metrics**: Precision, Recall, F1-score, detailed error analysis
 - ✅ **Flexible Model Integration**: Local (Ollama) and cloud APIs
@@ -31,50 +30,25 @@ This project automates the evaluation of Large Language Models on Infrastructure
 
 ```
 LLM-IaC-SecEval/
-├── 📁 src/                           # Source code organized by approach
-│   ├── 🤖 automated/                 # Automated evaluation pipeline
-│   │   ├── __init__.py               # Package initialization
-│   │   ├── config.py                 # Configuration management
-│   │   ├── pipeline.py               # Main evaluation orchestrator
-│   │   ├── prompt_builder.py         # Modular prompt construction
-│   │   ├── model_client.py           # Abstract LLM client interface
-│   │   ├── ollama_client.py          # Local Ollama implementation
-│   │   ├── file_processor.py         # IaC file and ground truth loading
-│   │   └── evaluator.py              # Metrics calculation and analysis
-│   ├── 📝 prompts/                   # Shared prompt templates
-│   │   ├── Template.txt              # Concise prompt template
-│   │   ├── Template_detailed.txt     # Full context with embedded definitions
-│   │   └── Template_instructions_only.txt # Instructions only (modular)
-│   ├── 🔧 zero-shot/                 # Manual zero-shot experiments
-│   │   └── prompt/                   # Original manual templates
-│   └── 🚀 RAG/                       # Future: Retrieval-Augmented Generation
-├── 📊 data/                          # Datasets and ground truth (gitignored)
-│   ├── oracle-dataset-ansible/       # 81 Ansible IaC scripts
-│   ├── oracle-dataset-chef/          # 80 Chef IaC scripts
-│   ├── oracle-dataset-puppet/        # 80 Puppet IaC scripts
-│   ├── oracle-dataset-ansible.csv    # Ansible ground truth annotations
-│   ├── oracle-dataset-chef.csv       # Chef ground truth annotations
-│   ├── oracle-dataset-puppet.csv     # Puppet ground truth annotations
-│   └── smells-description.txt        # Security smell definitions
-├── 🧪 scripts/                       # Executable scripts
-│   ├── run_evaluation.py             # Main evaluation script
-│   ├── validate_pipeline.py          # Setup validation and testing
-│   └── cleanup_results.py            # Results directory management
-├── 📋 docs/                          # Documentation
-│   ├── README_PIPELINE.md            # Detailed pipeline documentation
-│   └── MAKEFILE_USAGE.md             # Makefile commands guide
-├── 🗂️ results/                       # Evaluation outputs (gitignored)
-│   ├── full_evaluation_*.json        # Complete evaluation reports
-│   ├── batch_*.json                  # Per-technology results
-│   ├── raw_responses/                # Individual LLM responses
-│   ├── prompts/                      # Saved constructed prompts
-│   └── evaluations/                  # Detailed analysis reports
-├── 🧪 experiments/                   # Research experiments (gitignored)
-│   └── zero-shot/                    # Manual experiment records
-├── ⚙️ Makefile                       # Development workflow automation
-├── 📦 requirements.txt               # Python dependencies
-├── 🚫 .gitignore                     # Git ignore patterns
-└── 📖 README.md                      # This file
+├── src/
+│   ├── automated/          # Automated evaluation pipeline
+│   ├── prompts/           # Shared prompt templates
+│   ├── zero-shot/         # Manual experiments
+│   └── RAG/               # Future: RAG implementation
+├── data/                  # Datasets and ground truth (gitignored)
+│   ├── oracle-dataset-*/  # IaC scripts (ansible, chef, puppet)
+│   ├── oracle_dataset-*.csv # Ground truth annotations
+│   └── smells-description.txt
+├── scripts/               # Executable scripts
+│   ├── run_evaluation.py
+│   ├── validate_pipeline.py
+│   └── cleanup_results.py
+├── docs/                  # Documentation
+├── results/              # Evaluation outputs (gitignored)
+├── experiments/          # Research experiments (gitignored)
+├── Makefile             # Development automation
+├── requirements.txt     # Python dependencies
+└── README.md           # This file
 ```
 
 ## 🚀 **Quick Start**
@@ -233,53 +207,6 @@ python scripts/run_evaluation.py --small-batch --no-modular # Full context
 }
 ```
 
-## 🔧 **Advanced Usage**
-
-### **Prompt Debugging**
-
-```bash
-# See constructed prompts
-python scripts/run_evaluation.py --show-prompts --limit 1
-
-# Save prompts to files
-python scripts/run_evaluation.py --save-prompts --small-batch
-
-# Compare prompt modes
-python scripts/run_evaluation.py --show-prompts --limit 1 --no-modular
-```
-
-### **Custom Parameters**
-
-```bash
-# Adjust generation parameters
-python scripts/run_evaluation.py \
-  --temperature 0.2 \
-  --max-tokens 1024 \
-  --limit 50
-
-# Connect to remote Ollama
-python scripts/run_evaluation.py --ollama-url http://remote-server:11434
-
-# Filter by technology
-python scripts/run_evaluation.py --iac-tech ansible --limit 20
-```
-
-### **Results Management**
-
-```bash
-# Analyze results directory
-make clean-analyze
-
-# Archive specific experiments
-python scripts/cleanup_results.py --archive 20250803_145459 20250803_142106
-
-# Keep only recent experiments
-make clean-keep-3
-
-# Delete old experiments
-python scripts/cleanup_results.py --delete-older-than 7
-```
-
 ## 🛠️ **Development**
 
 ### **Adding New Models**
@@ -294,19 +221,6 @@ python scripts/cleanup_results.py --delete-older-than 7
 2. Implement custom metric calculation
 3. Update result aggregation in `pipeline.py`
 
-### **Testing Changes**
-
-```bash
-# Quick validation
-make validate
-
-# Single file test
-make test
-
-# Small batch before full evaluation
-make small
-```
-
 ## 📚 **Documentation**
 
 - **[Pipeline Documentation](docs/README_PIPELINE.md)**: Detailed technical specifications
@@ -316,12 +230,6 @@ make small
 ## 📄 **License**
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 **Acknowledgments**
-
-- Infrastructure as Code security smell definitions based on research by Rahman et al. (2021)
-- [Ollama](https://ollama.ai/) for local LLM inference capabilities
-- Dataset contributors for expert-annotated ground truth
 
 ---
 
