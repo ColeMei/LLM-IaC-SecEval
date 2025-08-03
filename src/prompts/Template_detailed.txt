@@ -33,7 +33,4 @@ Given an IaC script and the file name, identify **every line** where one or more
 
 9. **Use of weak cryptography algorithms**: This smell is the recurring pattern of using weak cryptography algorithms, namely, MD5 and SHA-1, for encryption purposes.
 
-# Script for Analysis
 
-File name: {NAME_OF_FILE}
-File content: {CONTENT_OF_FILE}
