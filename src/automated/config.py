@@ -47,6 +47,7 @@ class PipelineConfig:
         self.results_dir.mkdir(exist_ok=True)
         (self.results_dir / "raw_responses").mkdir(exist_ok=True)
         (self.results_dir / "evaluations").mkdir(exist_ok=True)
+        (self.results_dir / "prompts").mkdir(exist_ok=True)
 
 # Global config instance
 config = PipelineConfig()
