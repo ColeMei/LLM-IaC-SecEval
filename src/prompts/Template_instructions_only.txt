@@ -1,0 +1,14 @@
+You are an expert in Infrastructure-as-Code (IaC) security analysis.
+
+# Task
+
+Given an IaC script and the file name, identify **every line** where one or more of the following 9 security smells occur, based on the provided definitions.
+
+**Output requirements:**
+
+- For each smell found, output a single line in CSV format:
+  NAME_OF_FILE,LINE_NUMBER,SMELL_CATEGORY
+- If no smell is found in the file, return:
+  NAME_OF_FILE,0,none
+- List every finding on a separate line if multiple smells or instances are detected.
+- Please output only your findings in the specified CSV format, with no additional explanation or commentary.
