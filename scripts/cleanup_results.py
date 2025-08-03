@@ -141,10 +141,28 @@ class ResultsCleanup:
             return timestamp
             
         if len(timestamp) == 6:  # HHMMSS format
-            # Find experiment with matching time part
+            # First try exact match
             for exp_id in experiments.keys():
                 if exp_id.endswith(f"_{timestamp}"):
                     return exp_id
+            
+            # If no exact match, try time proximity matching (within 15 minutes)
+            target_time = int(timestamp)
+            for exp_id in experiments.keys():
+                if len(exp_id) == 15:  # Full experiment ID
+                    exp_time_str = exp_id.split('_')[1]  # Extract HHMMSS part
+                    try:
+                        exp_time = int(exp_time_str)
+                        # Calculate time difference (handle hour rollover)
+                        time_diff = abs(target_time - exp_time)
+                        if time_diff > 2400:  # Handle hour boundary (e.g., 205959 vs 210001)
+                            time_diff = min(time_diff, 10000 - time_diff)
+                        
+                        # Group files within 15 minutes (1500 in HHMMSS format)
+                        if time_diff <= 1500:
+                            return exp_id
+                    except ValueError:
+                        continue
                     
         return None
     
@@ -174,7 +192,13 @@ class ResultsCleanup:
                 # Count files by type for this experiment
                 root_files = [f for f in files if str(f.parent) == str(self.results_dir)]
                 subdir_files = len(files) - len(root_files)
-                print(f"   {timestamp} ({exp_date}): {len(files)} files ({len(root_files)} main, {subdir_files} detailed)")
+                
+                # Show time range for files in this experiment
+                if subdir_files > 0:
+                    time_range = self._get_experiment_time_range(files)
+                    print(f"   {timestamp} ({exp_date}): {len(files)} files ({len(root_files)} main, {subdir_files} detailed) {time_range}")
+                else:
+                    print(f"   {timestamp} ({exp_date}): {len(files)} files ({len(root_files)} main, {subdir_files} detailed)")
             
             if len(sorted_experiments) > 10:
                 print(f"   ... and {len(sorted_experiments) - 10} older experiments")
@@ -193,6 +217,24 @@ class ResultsCleanup:
             return dt.strftime("%Y-%m-%d %H:%M:%S")
         except ValueError:
             return timestamp
+    
+    def _get_experiment_time_range(self, files: List[Path]) -> str:
+        """Get time range for files in an experiment"""
+        timestamps = []
+        for file_path in files:
+            if str(file_path.parent) != str(self.results_dir):  # Only subdirectory files
+                timestamp = self._extract_timestamp(file_path.name)
+                if timestamp and len(timestamp) == 6:
+                    timestamps.append(timestamp)
+        
+        if len(timestamps) > 1:
+            min_time = min(timestamps)
+            max_time = max(timestamps)
+            return f"[{min_time}-{max_time}]"
+        elif len(timestamps) == 1:
+            return f"[{timestamps[0]}]"
+        else:
+            return ""
     
     def clean_old_experiments(self, days_to_keep: int = 7, dry_run: bool = True) -> List[Path]:
         """Remove experiments older than specified days"""
