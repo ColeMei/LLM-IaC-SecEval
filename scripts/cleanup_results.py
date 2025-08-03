@@ -37,12 +37,14 @@ class ResultsCleanup:
             'by_type': defaultdict(list),
             'by_date': defaultdict(list),
             'experiments': defaultdict(list),
-            'directories': []
+            'directories': [],
+            'orphaned_files': []
         }
         
         if not self.results_dir.exists():
             return analysis
             
+        # Process root-level files
         for item in self.results_dir.iterdir():
             if item.is_dir():
                 analysis['directories'].append({
@@ -71,6 +73,35 @@ class ResultsCleanup:
                     analysis['by_date'][timestamp].append(item)
                     analysis['experiments'][timestamp].append(item)
         
+        # Process subdirectory files (raw_responses, prompts, evaluations)
+        subdirs = ['raw_responses', 'prompts', 'evaluations']
+        for subdir_name in subdirs:
+            subdir = self.results_dir / subdir_name
+            if subdir.exists() and subdir.is_dir():
+                for file_path in subdir.iterdir():
+                    if file_path.is_file():
+                        analysis['total_files'] += 1
+                        size_mb = file_path.stat().st_size / (1024 * 1024)
+                        analysis['total_size_mb'] += size_mb
+                        
+                        # Categorize by subdirectory type
+                        analysis['by_type'][f'{subdir_name}_files'].append(file_path)
+                        
+                        # Extract timestamp and group with experiment
+                        timestamp = self._extract_timestamp(file_path.name)
+                        if timestamp:
+                            # Convert HHMMSS to full experiment_id by matching with existing experiments
+                            experiment_id = self._find_matching_experiment(timestamp, analysis['experiments'])
+                            if experiment_id:
+                                analysis['experiments'][experiment_id].append(file_path)
+                                analysis['by_date'][experiment_id].append(file_path)
+                            else:
+                                # No matching experiment found - orphaned file
+                                analysis['orphaned_files'].append(file_path)
+                        else:
+                            # No timestamp - orphaned file
+                            analysis['orphaned_files'].append(file_path)
+        
         return analysis
     
     def _get_dir_size(self, path: Path) -> int:
@@ -85,14 +116,36 @@ class ResultsCleanup:
         return total
     
     def _extract_timestamp(self, filename: str) -> str:
-        """Extract timestamp from filename (format: YYYYMMDD_HHMMSS)"""
+        """Extract timestamp from filename (format: YYYYMMDD_HHMMSS or HHMMSS)"""
         parts = filename.split('_')
+        
+        # Check for full experiment ID (YYYYMMDD_HHMMSS)
         for i, part in enumerate(parts):
             if len(part) == 8 and part.isdigit():  # YYYYMMDD
                 if i + 1 < len(parts):
                     time_part = parts[i + 1].split('.')[0]  # Remove extension
                     if len(time_part) == 6 and time_part.isdigit():  # HHMMSS
                         return f"{part}_{time_part}"
+        
+        # Check for time-only timestamp (HHMMSS) - for subdirectory files
+        for part in reversed(parts):  # Check from end as timestamp is usually last
+            clean_part = part.split('.')[0]  # Remove extension
+            if len(clean_part) == 6 and clean_part.isdigit():  # HHMMSS
+                return clean_part
+                
+        return None
+    
+    def _find_matching_experiment(self, timestamp: str, experiments: Dict) -> str:
+        """Find experiment ID that matches a HHMMSS timestamp"""
+        if len(timestamp) == 15:  # Already full experiment ID
+            return timestamp
+            
+        if len(timestamp) == 6:  # HHMMSS format
+            # Find experiment with matching time part
+            for exp_id in experiments.keys():
+                if exp_id.endswith(f"_{timestamp}"):
+                    return exp_id
+                    
         return None
     
     def print_analysis(self, analysis: Dict):
@@ -114,14 +167,24 @@ class ResultsCleanup:
                 print(f"   {file_type}: {len(files)} files")
         
         if analysis['experiments']:
-            print(f"\n🧪 Experiments by timestamp:")
+            print(f"\n🧪 Experiments (complete with all files):")
             sorted_experiments = sorted(analysis['experiments'].items(), reverse=True)
             for timestamp, files in sorted_experiments[:10]:  # Show last 10
                 exp_date = self._format_timestamp(timestamp)
-                print(f"   {timestamp} ({exp_date}): {len(files)} files")
+                # Count files by type for this experiment
+                root_files = [f for f in files if str(f.parent) == str(self.results_dir)]
+                subdir_files = len(files) - len(root_files)
+                print(f"   {timestamp} ({exp_date}): {len(files)} files ({len(root_files)} main, {subdir_files} detailed)")
             
             if len(sorted_experiments) > 10:
                 print(f"   ... and {len(sorted_experiments) - 10} older experiments")
+        
+        if analysis.get('orphaned_files'):
+            print(f"\n⚠️  Orphaned files (no matching experiment): {len(analysis['orphaned_files'])} files")
+            for orphan in analysis['orphaned_files'][:5]:  # Show first 5
+                print(f"   - {orphan.name}")
+            if len(analysis['orphaned_files']) > 5:
+                print(f"   ... and {len(analysis['orphaned_files']) - 5} more")
     
     def _format_timestamp(self, timestamp: str) -> str:
         """Format timestamp for display"""
@@ -136,16 +199,16 @@ class ResultsCleanup:
         cutoff_date = datetime.now() - timedelta(days=days_to_keep)
         files_to_remove = []
         
-        for item in self.results_dir.iterdir():
-            if item.is_file():
-                timestamp = self._extract_timestamp(item.name)
-                if timestamp:
-                    try:
-                        exp_date = datetime.strptime(timestamp, "%Y%m%d_%H%M%S")
-                        if exp_date < cutoff_date:
-                            files_to_remove.append(item)
-                    except ValueError:
-                        continue
+        analysis = self.analyze_directory()
+        
+        for experiment_id, files in analysis['experiments'].items():
+            if len(experiment_id) == 15:  # Full experiment ID format
+                try:
+                    exp_date = datetime.strptime(experiment_id, "%Y%m%d_%H%M%S")
+                    if exp_date < cutoff_date:
+                        files_to_remove.extend(files)
+                except ValueError:
+                    continue
         
         if not dry_run:
             for file_path in files_to_remove:
@@ -165,24 +228,36 @@ class ResultsCleanup:
         if not dry_run:
             self.archive_dir.mkdir(exist_ok=True)
         
+        analysis = self.analyze_directory()
         archived_count = 0
+        
         for exp_id in experiment_ids:
-            matching_files = []
-            
-            # Find all files for this experiment
-            for item in self.results_dir.iterdir():
-                if item.is_file() and exp_id in item.name:
-                    matching_files.append(item)
+            matching_files = analysis['experiments'].get(exp_id, [])
             
             if matching_files:
                 if not dry_run:
                     exp_archive_dir = self.archive_dir / exp_id
                     exp_archive_dir.mkdir(exist_ok=True)
                     
+                    # Create subdirectories in archive to preserve structure
+                    (exp_archive_dir / "raw_responses").mkdir(exist_ok=True)
+                    (exp_archive_dir / "prompts").mkdir(exist_ok=True)
+                    (exp_archive_dir / "evaluations").mkdir(exist_ok=True)
+                    
                     for file_path in matching_files:
                         try:
-                            shutil.move(str(file_path), str(exp_archive_dir / file_path.name))
-                            print(f"📦 Archived: {file_path.name} → archive/{exp_id}/")
+                            # Determine target directory based on file location
+                            if 'raw_responses' in str(file_path):
+                                target_dir = exp_archive_dir / "raw_responses"
+                            elif 'prompts' in str(file_path):
+                                target_dir = exp_archive_dir / "prompts"
+                            elif 'evaluations' in str(file_path):
+                                target_dir = exp_archive_dir / "evaluations"
+                            else:
+                                target_dir = exp_archive_dir
+                            
+                            shutil.move(str(file_path), str(target_dir / file_path.name))
+                            print(f"📦 Archived: {file_path.name} → archive/{exp_id}/{target_dir.name if target_dir != exp_archive_dir else ''}")
                         except Exception as e:
                             print(f"❌ Failed to archive {file_path.name}: {e}")
                 
@@ -195,20 +270,34 @@ class ResultsCleanup:
         analysis = self.analyze_directory()
         duplicates_to_remove = []
         
-        # Group by experiment type and find duplicates
+        # Group by experiment and find duplicates within each experiment
         for timestamp, files in analysis['experiments'].items():
-            full_evals = [f for f in files if f.name.startswith('full_evaluation_')]
-            batches = [f for f in files if f.name.startswith('batch_')]
+            # Group by file type within experiment
+            file_groups = defaultdict(list)
+            for file_path in files:
+                if file_path.name.startswith('full_evaluation_'):
+                    file_groups['full_evaluation'].append(file_path)
+                elif file_path.name.startswith('batch_'):
+                    file_groups['batch'].append(file_path)
+                elif 'raw_responses' in str(file_path):
+                    # Group raw responses by original filename
+                    base_name = '_'.join(file_path.name.split('_')[:-1])  # Remove timestamp
+                    file_groups[f'raw_response_{base_name}'].append(file_path)
+                elif 'prompts' in str(file_path):
+                    # Group prompts by original filename and mode
+                    parts = file_path.name.split('_')
+                    if len(parts) >= 3:
+                        base_key = '_'.join(parts[:-1])  # Remove timestamp
+                        file_groups[f'prompt_{base_key}'].append(file_path)
+                elif 'evaluations' in str(file_path):
+                    file_groups['evaluation'].append(file_path)
             
-            # If multiple full evaluations for same timestamp, keep the largest (most complete)
-            if len(full_evals) > 1:
-                full_evals.sort(key=lambda x: x.stat().st_size, reverse=True)
-                duplicates_to_remove.extend(full_evals[1:])
-            
-            # Similar for batch files
-            if len(batches) > 1:
-                batches.sort(key=lambda x: x.stat().st_size, reverse=True)
-                duplicates_to_remove.extend(batches[1:])
+            # Find duplicates within each group
+            for group_name, group_files in file_groups.items():
+                if len(group_files) > 1:
+                    # Sort by file size (keep largest) and modification time (keep newest)
+                    group_files.sort(key=lambda x: (x.stat().st_size, x.stat().st_mtime), reverse=True)
+                    duplicates_to_remove.extend(group_files[1:])  # Remove all but the first (best)
         
         if not dry_run:
             for file_path in duplicates_to_remove:
@@ -378,7 +467,9 @@ class ResultsCleanup:
             print("❌ Invalid number")
             return
         
-        sorted_experiments = sorted(analysis['experiments'].items(), reverse=True)
+        # Only consider complete experiments (with full experiment ID)
+        complete_experiments = {k: v for k, v in analysis['experiments'].items() if len(k) == 15}
+        sorted_experiments = sorted(complete_experiments.items(), reverse=True)
         experiments_to_delete = sorted_experiments[n:]  # Skip first n (latest)
         
         files_to_delete = []
@@ -387,6 +478,7 @@ class ResultsCleanup:
         
         if files_to_delete:
             print(f"\n🗑️  Will delete {len(experiments_to_delete)} old experiments ({len(files_to_delete)} files)")
+            print(f"Files include: main reports, raw responses, prompts, and evaluations")
             confirm = input("Proceed? (y/N): ").strip().lower()
             if confirm == 'y':
                 for file_path in files_to_delete:
@@ -472,7 +564,9 @@ def main():
     
     if args.keep_latest:
         analysis = cleanup.analyze_directory()
-        sorted_experiments = sorted(analysis['experiments'].items(), reverse=True)
+        # Only consider complete experiments (with full experiment ID)
+        complete_experiments = {k: v for k, v in analysis['experiments'].items() if len(k) == 15}
+        sorted_experiments = sorted(complete_experiments.items(), reverse=True)
         experiments_to_delete = sorted_experiments[args.keep_latest:]
         
         files_to_delete = []
@@ -481,9 +575,14 @@ def main():
         
         if args.dry_run:
             print(f"Would delete {len(experiments_to_delete)} old experiments ({len(files_to_delete)} files)")
+            print(f"Files include: main reports, raw responses, prompts, and evaluations")
         else:
             for file_path in files_to_delete:
-                file_path.unlink()
+                try:
+                    file_path.unlink()
+                    print(f"🗑️  Deleted: {file_path.name}")
+                except Exception as e:
+                    print(f"❌ Failed to delete {file_path.name}: {e}")
             print(f"✅ Kept latest {args.keep_latest} experiments")
         return
     
