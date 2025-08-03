@@ -2,7 +2,7 @@ You are an expert in Infrastructure-as-Code (IaC) security analysis.
 
 # Task
 
-Given an IaC script and the file name, identify **every line** where one or more of the following 9 security smells occur, based on the provided definitions.
+Given an IaC script and the file name, identify **every line** where one or more of the above 9 security smells occur, based on the provided definitions.
 
 **Output requirements:**
 
