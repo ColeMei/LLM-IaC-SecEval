@@ -14,7 +14,7 @@ This project automates the evaluation of Large Language Models on Infrastructure
 ### **Research Goals**
 
 - 📊 **Quantitative Benchmarking**: Compare LLM performance on security smell detection
-- 🔍 **Multi-Model Evaluation**: Test Code Llama 7B, GPT-4o, Grok-4, Claude, etc.
+- 🔍 **Multi-Model Evaluation**: Test Code Llama 7B, GPT-4o, Claude, etc.
 - 🧩 **Methodology Comparison**: Zero-shot vs Modular prompting vs RAG (future)
 - 📈 **Scalable Evaluation**: Process 241 IaC files with automated metrics
 
