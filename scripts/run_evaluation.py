@@ -59,7 +59,7 @@ def main():
     # Determine default model for each client type
     default_models = {
         'ollama': 'codellama:7b',
-        'openai': 'gpt-3.5-turbo'
+        'openai': 'gpt-4o-mini'
     }
     
     model_name = args.model or default_models[args.client]

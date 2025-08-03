@@ -26,7 +26,7 @@ class PipelineConfig:
     
     # OpenAI configurations
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
-    openai_default_model: str = "gpt-3.5-turbo"
+    openai_default_model: str = "gpt-4o-mini"
     
     # Output settings
     batch_size: int = 10

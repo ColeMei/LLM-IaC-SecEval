@@ -1,7 +1,7 @@
 """
 OpenAI API client for cloud-based LLM inference
 """
-import openai
+from openai import OpenAI
 import time
 from typing import Dict, Any, Optional
 from .model_client import ModelClient, ModelResponse
@@ -17,8 +17,8 @@ class OpenAIClient(ModelClient):
         if not self.api_key:
             raise ValueError("OpenAI API key is required. Set it in config or pass as parameter.")
         
-        # Initialize OpenAI client
-        openai.api_key = self.api_key
+        # Initialize OpenAI client (new v1.0+ API)
+        self.client = OpenAI(api_key=self.api_key)
         
     def generate(self, prompt: str, **kwargs) -> ModelResponse:
         """
@@ -50,8 +50,8 @@ class OpenAIClient(ModelClient):
                 "presence_penalty": kwargs.get("presence_penalty", 0),
             }
             
-            # Make API call
-            response = openai.ChatCompletion.create(**openai_params)
+            # Make API call (new v1.0+ API)
+            response = self.client.chat.completions.create(**openai_params)
             end_time = time.time()
             
             # Extract response data
@@ -73,20 +73,22 @@ class OpenAIClient(ModelClient):
                 }
             )
             
-        except openai.error.AuthenticationError as e:
-            raise ConnectionError(f"OpenAI authentication failed: {e}")
-        except openai.error.RateLimitError as e:
-            raise ConnectionError(f"OpenAI rate limit exceeded: {e}")
-        except openai.error.APIError as e:
-            raise ConnectionError(f"OpenAI API error: {e}")
+        except Exception as e:
+            error_msg = str(e)
+            if "authentication" in error_msg.lower():
+                raise ConnectionError(f"OpenAI authentication failed: {e}")
+            elif "rate_limit" in error_msg.lower() or "429" in error_msg:
+                raise ConnectionError(f"OpenAI rate limit exceeded: {e}")
+            else:
+                raise ConnectionError(f"OpenAI API error: {e}")
         except Exception as e:
             raise RuntimeError(f"Unexpected error during OpenAI generation: {e}")
     
     def is_available(self) -> bool:
         """Check if OpenAI API is accessible"""
         try:
-            # Try to list models to check API access
-            openai.Model.list()
+            # Try to list models to check API access (new v1.0+ API)
+            self.client.models.list()
             return True
         except Exception:
             return False
@@ -99,7 +101,7 @@ class OpenAIClient(ModelClient):
     def list_models(self) -> list:
         """List all available OpenAI models"""
         try:
-            models = openai.Model.list()
+            models = self.client.models.list()
             return [model.id for model in models.data]
         except Exception:
             return []

@@ -47,7 +47,7 @@ src/prompts/
 # Basic usage (Ollama - default)
 python scripts/run_evaluation.py
 
-# OpenAI GPT-3.5-turbo
+# OpenAI GPT-4o-mini
 export OPENAI_API_KEY="your-key"
 python scripts/run_evaluation.py --client openai
 
@@ -59,7 +59,7 @@ python scripts/run_evaluation.py --client openai --small-batch --show-prompts
 
 # Model comparison
 python scripts/run_evaluation.py --client ollama --model codellama:7b --limit 5
-python scripts/run_evaluation.py --client openai --model gpt-3.5-turbo --limit 5
+python scripts/run_evaluation.py --client openai --model gpt-4o-mini --limit 5
 
 # Technology-specific evaluation
 python scripts/run_evaluation.py --client openai --iac-tech ansible --limit 20
@@ -70,7 +70,7 @@ python scripts/run_evaluation.py --client openai --iac-tech ansible --limit 20
 | Client     | Type  | Setup Commands                                 | Default Model   |
 | ---------- | ----- | ---------------------------------------------- | --------------- |
 | **Ollama** | Local | `ollama serve` <br> `ollama pull codellama:7b` | `codellama:7b`  |
-| **OpenAI** | Cloud | `export OPENAI_API_KEY="your-key"`             | `gpt-3.5-turbo` |
+| **OpenAI** | Cloud | `export OPENAI_API_KEY="your-key"`             | `gpt-4o-mini` |
 
 ## Validation & Testing
 
@@ -101,13 +101,6 @@ VALIDATION SUMMARY
 python scripts/run_evaluation.py --client ollama --validate-only
 python scripts/run_evaluation.py --client openai --validate-only
 ```
-
-## Prompting Approaches
-
-| Approach                          | Size         | Format                           | Use Case                   |
-| --------------------------------- | ------------ | -------------------------------- | -------------------------- |
-| **Modular** (default)             | ~1,300 chars | Background + Instructions + Code | Better separation, cleaner |
-| **Full Context** (`--no-modular`) | ~4,400 chars | All-in-one template + Code       | Traditional, comprehensive |
 
 ## Prompt Debugging
 
@@ -150,7 +143,7 @@ python scripts/run_evaluation.py --save-prompts --small-batch
 {
   "experiment_info": {
     "experiment_id": "20250803_143022",
-    "model_name": "gpt-3.5-turbo",
+    "model_name": "gpt-4o-mini",
     "approach": "modular"
   },
   "results_by_technology": {
