@@ -38,15 +38,11 @@ set_env_var() {
 echo
 echo "This script will help you set up API keys for:"
 echo "• OpenAI (for GPT models)"
-echo "• Grok (for X.AI models)"
 echo "• Ollama is local and doesn't need API keys"
 echo
 
 # OpenAI setup
 set_env_var "OPENAI_API_KEY" "OpenAI API key for GPT models"
-
-# Grok setup  
-set_env_var "GROK_API_KEY" "Grok API key for X.AI models"
 
 echo
 echo "🧪 Testing client availability..."
@@ -66,17 +62,11 @@ else
     echo "⚠️  OpenAI API key not set"
 fi
 
-# Test Grok
-if [ -n "$GROK_API_KEY" ]; then
-    echo "✅ Grok API key is set"
-else
-    echo "⚠️  Grok API key not set"
-fi
+
 
 echo
 echo "🚀 Setup complete! You can now run:"
 echo "   python scripts/run_evaluation.py --client ollama --validate-only"
 echo "   python scripts/run_evaluation.py --client openai --validate-only"
-echo "   python scripts/run_evaluation.py --client grok --validate-only"
 echo
 echo "💡 Restart your terminal or run 'source ~/.bashrc' to load new environment variables"

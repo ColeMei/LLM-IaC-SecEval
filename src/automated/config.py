@@ -28,11 +28,6 @@ class PipelineConfig:
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     openai_default_model: str = "gpt-3.5-turbo"
     
-    # Grok (X.AI) configurations
-    grok_api_key: str = os.getenv("GROK_API_KEY", "")
-    grok_base_url: str = "https://api.x.ai/v1"
-    grok_default_model: str = "grok-beta"
-    
     # Output settings
     batch_size: int = 10
     output_format: str = "csv"  # csv, json

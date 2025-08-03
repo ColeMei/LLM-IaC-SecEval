@@ -5,9 +5,8 @@ __version__ = "1.0.0"
 from .model_client import ModelClient, ModelResponse
 from .ollama_client import OllamaClient
 from .openai_client import OpenAIClient
-from .grok_client import GrokClient
 from .config import config
-from .pipeline import Pipeline
+from .pipeline import LLMIaCPipeline
 from .evaluator import Evaluator
 
 # Client factory function
@@ -16,7 +15,7 @@ def create_client(client_type: str, **kwargs):
     Factory function to create different types of LLM clients
     
     Args:
-        client_type: Type of client ('ollama', 'openai', 'grok')
+        client_type: Type of client ('ollama', 'openai')
         **kwargs: Additional parameters for client initialization
         
     Returns:
@@ -31,17 +30,15 @@ def create_client(client_type: str, **kwargs):
         return OllamaClient(**kwargs)
     elif client_type == 'openai':
         return OpenAIClient(**kwargs)
-    elif client_type == 'grok':
-        return GrokClient(**kwargs)
     else:
-        raise ValueError(f"Unsupported client type: {client_type}. Supported types: ollama, openai, grok")
+        raise ValueError(f"Unsupported client type: {client_type}. Supported types: ollama, openai")
 
 # Available client types
-SUPPORTED_CLIENTS = ['ollama', 'openai', 'grok']
+SUPPORTED_CLIENTS = ['ollama', 'openai']
 
 __all__ = [
     'ModelClient', 'ModelResponse',
-    'OllamaClient', 'OpenAIClient', 'GrokClient',
-    'config', 'Pipeline', 'Evaluator',
+    'OllamaClient', 'OpenAIClient',
+    'config', 'LLMIaCPipeline', 'Evaluator',
     'create_client', 'SUPPORTED_CLIENTS'
 ]

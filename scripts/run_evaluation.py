@@ -27,10 +27,6 @@ def main():
                        help="Ollama server URL (default: http://localhost:11434)")
     parser.add_argument("--openai-api-key", 
                        help="OpenAI API key (or set OPENAI_API_KEY env var)")
-    parser.add_argument("--grok-api-key",
-                       help="Grok API key (or set GROK_API_KEY env var)")
-    parser.add_argument("--grok-url", default="https://api.x.ai/v1",
-                       help="Grok API base URL (default: https://api.x.ai/v1)")
     
     # Execution options
     parser.add_argument("--iac-tech", choices=["ansible", "chef", "puppet"], 
@@ -63,8 +59,7 @@ def main():
     # Determine default model for each client type
     default_models = {
         'ollama': 'codellama:7b',
-        'openai': 'gpt-3.5-turbo', 
-        'grok': 'grok-beta'
+        'openai': 'gpt-3.5-turbo'
     }
     
     model_name = args.model or default_models[args.client]
@@ -77,11 +72,6 @@ def main():
     elif args.client == 'openai':
         if args.openai_api_key:
             client_kwargs['api_key'] = args.openai_api_key
-    elif args.client == 'grok':
-        if args.grok_api_key:
-            client_kwargs['api_key'] = args.grok_api_key
-        if args.grok_url != "https://api.x.ai/v1":
-            client_kwargs['base_url'] = args.grok_url
     
     # Initialize model client using factory
     try:
@@ -90,8 +80,6 @@ def main():
         print(f"❌ Failed to create {args.client} client: {e}")
         if args.client == 'openai' and 'API key' in str(e):
             print("   💡 Set OPENAI_API_KEY environment variable or use --openai-api-key")
-        elif args.client == 'grok' and 'API key' in str(e):
-            print("   💡 Set GROK_API_KEY environment variable or use --grok-api-key")
         return 1
     
     # Initialize pipeline
@@ -126,9 +114,6 @@ def main():
             print("   💡 Ensure Ollama is running: ollama serve")
         elif args.client == 'openai':
             print("   💡 Check your OpenAI API key and internet connection")
-            print("   💡 Verify the model name is correct")
-        elif args.client == 'grok':
-            print("   💡 Check your Grok API key and internet connection") 
             print("   💡 Verify the model name is correct")
         return 1
     
