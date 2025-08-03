@@ -10,17 +10,27 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from automated.pipeline import LLMIaCPipeline
-from automated.ollama_client import OllamaClient
+from automated import create_client, SUPPORTED_CLIENTS
 from automated.config import config
 
 def main():
     parser = argparse.ArgumentParser(description="Run LLM-IaC-SecEval automated pipeline")
     
-    # Model selection
-    parser.add_argument("--model", default="codellama:7b", 
-                       help="Model name for Ollama (default: codellama:7b)")
+    # Client and model selection
+    parser.add_argument("--client", choices=SUPPORTED_CLIENTS, default="ollama",
+                       help=f"LLM client type (choices: {SUPPORTED_CLIENTS}, default: ollama)")
+    parser.add_argument("--model", 
+                       help="Model name (default varies by client)")
+    
+    # Client-specific options
     parser.add_argument("--ollama-url", default="http://localhost:11434",
                        help="Ollama server URL (default: http://localhost:11434)")
+    parser.add_argument("--openai-api-key", 
+                       help="OpenAI API key (or set OPENAI_API_KEY env var)")
+    parser.add_argument("--grok-api-key",
+                       help="Grok API key (or set GROK_API_KEY env var)")
+    parser.add_argument("--grok-url", default="https://api.x.ai/v1",
+                       help="Grok API base URL (default: https://api.x.ai/v1)")
     
     # Execution options
     parser.add_argument("--iac-tech", choices=["ansible", "chef", "puppet"], 
@@ -50,8 +60,39 @@ def main():
     
     args = parser.parse_args()
     
-    # Initialize model client
-    client = OllamaClient(model_name=args.model, base_url=args.ollama_url)
+    # Determine default model for each client type
+    default_models = {
+        'ollama': 'codellama:7b',
+        'openai': 'gpt-3.5-turbo', 
+        'grok': 'grok-beta'
+    }
+    
+    model_name = args.model or default_models[args.client]
+    
+    # Prepare client-specific parameters
+    client_kwargs = {'model_name': model_name}
+    
+    if args.client == 'ollama':
+        client_kwargs['base_url'] = args.ollama_url
+    elif args.client == 'openai':
+        if args.openai_api_key:
+            client_kwargs['api_key'] = args.openai_api_key
+    elif args.client == 'grok':
+        if args.grok_api_key:
+            client_kwargs['api_key'] = args.grok_api_key
+        if args.grok_url != "https://api.x.ai/v1":
+            client_kwargs['base_url'] = args.grok_url
+    
+    # Initialize model client using factory
+    try:
+        client = create_client(args.client, **client_kwargs)
+    except Exception as e:
+        print(f"❌ Failed to create {args.client} client: {e}")
+        if args.client == 'openai' and 'API key' in str(e):
+            print("   💡 Set OPENAI_API_KEY environment variable or use --openai-api-key")
+        elif args.client == 'grok' and 'API key' in str(e):
+            print("   💡 Set GROK_API_KEY environment variable or use --grok-api-key")
+        return 1
     
     # Initialize pipeline
     pipeline = LLMIaCPipeline(model_client=client)
@@ -75,10 +116,20 @@ def main():
             print(f"   {tech.upper()}: ✓ {status['files_count']} files, {status['ground_truth_loaded']} GT")
     
     if not validation['model_available']:
-        print(f"\n❌ Model '{args.model}' not available!")
+        print(f"\n❌ {args.client.upper()} client/model not available!")
         if 'model_error' in validation:
             print(f"   Error: {validation['model_error']}")
-        print("   Try: ollama pull codellama:7b")
+        
+        # Provide client-specific troubleshooting
+        if args.client == 'ollama':
+            print(f"   💡 Try: ollama pull {model_name}")
+            print("   💡 Ensure Ollama is running: ollama serve")
+        elif args.client == 'openai':
+            print("   💡 Check your OpenAI API key and internet connection")
+            print("   💡 Verify the model name is correct")
+        elif args.client == 'grok':
+            print("   💡 Check your Grok API key and internet connection") 
+            print("   💡 Verify the model name is correct")
         return 1
     
     if args.validate_only:
@@ -97,7 +148,8 @@ def main():
     
     print(f"\n2. Running evaluation...")
     print(f"   Technologies: {iac_technologies}")
-    print(f"   Model: {args.model}")
+    print(f"   Client: {args.client}")
+    print(f"   Model: {model_name}")
     print(f"   Modular prompting: {use_modular}")
     print(f"   Limit per tech: {limit or 'all'}")
     print(f"   Generation params: {generation_kwargs}")
