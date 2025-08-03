@@ -4,7 +4,7 @@ Documentation for managing experiment results using `scripts/cleanup_results.py`
 
 ## Overview
 
-The cleanup script manages **complete experiments** including all associated files across subdirectories. Each experiment consists of main reports plus detailed files (raw responses, prompts, evaluations) that are grouped and managed together.
+The cleanup script manages **complete experiments** including all associated files across subdirectories. Files are automatically grouped by time proximity (within 15 minutes) to handle experiments that span multiple minutes during processing.
 
 ## Quick Start
 
@@ -99,10 +99,10 @@ results/
         └── evaluations/
 ```
 
-**Experiment Grouping:** Files are grouped by timestamp patterns:
+**Experiment Grouping:** Files are grouped by time proximity:
 
 - **Main files**: `YYYYMMDD_HHMMSS` (e.g., `20250803_145459`)
-- **Detail files**: `HHMMSS` (e.g., `145459`) - matched to main experiment
+- **Detail files**: `HHMMSS` (e.g., `145459`) - grouped within 15-minute window of main experiment
 
 ## Analysis Output
 
@@ -115,15 +115,16 @@ python scripts/cleanup_results.py --analyze
 ```
 📊 Results Directory Analysis
 ==================================================
-📄 Total files: 45
-💾 Total size: 2.1 MB
+📄 Total files: 34
+💾 Total size: 0.4 MB
 
 🧪 Experiments (complete with all files):
-   20250803_145459 (2025-08-03 14:54:59): 8 files (2 main, 6 detailed)
-   20250803_142318 (2025-08-03 14:23:18): 6 files (2 main, 4 detailed)
+   20250803_204547 (2025-08-03 20:45:47): 34 files (4 main, 30 detailed) [204547-205208]
 
-⚠️  Orphaned files (no matching experiment): 3 files
+⚠️  Orphaned files (no matching experiment): 0 files
 ```
+
+The time range `[204547-205208]` shows the span of timestamps for files in the experiment.
 
 ## Best Practices
 
@@ -163,9 +164,9 @@ chmod 755 results results/*
 
 **Orphaned files detected:**
 
-- Review orphaned files in analysis output
-- Manually clean if they're truly unused
-- May indicate interrupted experiments
+- Rare with time-based grouping
+- May indicate very old files or interrupted experiments
+- Review and manually clean if needed
 
 **Recovery:**
 
