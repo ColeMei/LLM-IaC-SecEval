@@ -148,7 +148,6 @@ $RECYCLE.BIN/
 
 # Project specific
 results/
-experiments/
 data/
 
 # Keep docs but ignore specific temp files
