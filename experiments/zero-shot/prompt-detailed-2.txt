@@ -1,0 +1,107 @@
+You are an expert in Infrastructure-as-Code (IaC) security analysis.
+
+# Task
+
+Given an IaC script and the file name, identify **every line** where one or more of the following 9 security smells occur, based on the provided definitions.
+
+**Output requirements:**
+
+- For each smell found, output a single line in CSV format:
+  NAME_OF_FILE,LINE_NUMBER,SMELL_CATEGORY
+- If no smell is found in the file, return:
+  NAME_OF_FILE,0,none
+- List every finding on a separate line if multiple smells or instances are detected.
+- Please output only your findings in the specified CSV format, with no additional explanation or commentary.
+
+# Definitions of Security Smells
+
+1. **Admin by default**: This smell is the recurring pattern of specifying default users as administrative users. The smell can violate the “principle of least privilege” property." We can consider this smell everytime more privileges are being given than it should be necessary.
+
+2. **Empty password**: This smell is the recurring pattern of using a string of length zero for a password. An empty password is indicative of a weak password.
+
+3. **Hard-coded secret**: This smell is the recurring pattern of revealing sensitive information, such as user name and passwords in IaC scripts. We consider three types of hard-coded secrets: hard-coded passwords, hard-coded user names, and hard-coded private cryptography keys.
+
+4. **Missing default in case statement**: This smell is the recurring pattern of not handling all input combinations when implementing a case conditional logic.
+
+5. **No integrity check**: This smell is the recurring pattern of downloading content from the Internet and not checking the downloaded content using checksums or gpg signatures. Simply referencing or defining a URL does not count unless an actual download is performed without validation.
+
+6. **Suspicious comment**: This smell is the recurring pattern of putting information in comments about the presence of defects, missing functionality, or weakness ofthe system. Examples of such comments include putting keywords such as “TODO,” “FIXME,” and “HACK” in comments.
+
+7. **Unrestricted IP address**: This smell is the recurring pattern of assigning the address 0.0.0.0 for a database server or a cloud service/instance. Binding to the address 0.0.0.0 may cause security concerns as this address can allow connections from every possible network.
+
+8. **Use of HTTP without SSL/TLS**: This smell is the recurring pattern of using HTTP without the Transport Layer Security (TLS) or Secure Sockets Layer (SSL). Such use makes the communication between two entities less secure, as without SSL/TLS, use of HTTP is susceptible to man-in-the-middle attacks. Do not flag http:// URLs that use local addresses like localhost, 127.0.0.1, or ::1, as these are not security risks.
+
+9. **Use of weak cryptography algorithms**: This smell is the recurring pattern of using weak cryptography algorithms, namely, MD5 and SHA-1, for encryption purposes.
+
+# Script for Analysis
+
+File name: bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml
+
+File content: 
+---
+keystone_source_install: true
+# *_git_url can be overridden by local clones for offline installs
+keystone_git_url: https://git.openstack.org/openstack/keystone
+keystone_git_folder: /opt/stack/keystone
+
+# set to true to skip installing ironic dependencies
+skip_package_install: False
+# set to true to skip generation of configs, ironic db and rabbitmq configuration
+skip_bootstrap: False
+# set to true to skip starting ironic services and dependencies
+skip_start: False
+
+# Parameters for connecting to mysql for database manipulation.
+mysql_username: "root"
+mysql_password: ""
+
+# Support for CORS configuration
+# By default CORS support is disabled.
+enable_cors: false
+# Origin to accept for CORS requests
+cors_allowed_origin: "http://localhost:8000"
+cors_allowed_origin2: "www.google.com"
+# bifrost utilizes noauth mode by default and as such
+# the setting should be set to false. This setting should
+# not need to be modified by the user.
+enable_cors_credential_support: false
+
+# Defaults required by this role that are normally inherited via
+# other roles.
+file_url_port: 8080
+http_boot_folder: /httpboot
+
+# Settings related to installing bifrost in a virtual environment
+enable_venv: false
+bifrost_venv_dir: "{{ lookup('env', 'VENV') | default('/opt/stack/bifrost') }}"
+bifrost_venv_env:
+  VIRTUAL_ENV: "{{ bifrost_venv_dir }}"
+  PATH: "{{ bifrost_venv_dir }}/bin:{{ ansible_env.PATH }}" # include regular path via lookup env
+  pydoc: "python -m pydoc"
+
+
+keystone:
+  debug: true
+  bootstrap:
+    enabled: true
+    username: admin
+    password: ChangeThisPa55w0rd
+    project_name: admin
+    admin_url: "http://127.0.0.1:35357/v3/"
+    public_url: "http://127.0.0.1:5000/v3/"
+    internal_url: "http://127.0.0.1:5000/v3/"
+    region_name: "RegionOne"
+  message_queue:
+    username: keystone
+    password: ChangeThisPa55w0rd
+    host: localhost
+    port: 5672
+  database:
+    name: keystone
+    username: keystone
+    password: ChangeThisPa55w0rd
+    host: localhost
+
+# NOTE(hwoarang): openSUSE distros may come with recent pip versions so
+# upgrade only what's necessary
+pip_opts: "{{ ((ansible_os_family | lower == 'suse') or (enable_venv | bool)) | ternary('--upgrade-strategy only-if-needed', '--force-reinstall') }}"

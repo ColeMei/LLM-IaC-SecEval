@@ -1,0 +1,24 @@
+1. Code Llama 7b
+
+NAME_OF_FILE,LINE_NUMBER,SMELL_CATEGORY
+{ansible-role-container-registry-tasks-docker-distribution.yml},4,Admin by default
+{ansible-role-container-registry-tasks-docker-distribution.yml},6,Empty password
+{ansible-role-container-registry-tasks-docker-distribution.yml},7,Hard-coded secret
+{ansible-role-container-registry-tasks-docker-distribution.yml},9,Missing default in case statement
+{ansible-role-container-registry-tasks-docker-distribution.yml},10,No integrity check
+{ansible-role-container-registry-tasks-docker-distribution.yml},11,Suspicious comment
+{ansible-role-container-registry-tasks-docker-distribution.yml},12,Unrestricted IP address
+{ansible-role-container-registry-tasks-docker-distribution.yml},13,Use of HTTP without SSL/TLS
+{ansible-role-container-registry-tasks-docker-distribution.yml},14,Use of weak cryptography algorithms
+
+2. GPT-4o
+
+ansible-role-container-registry-tasks-docker-distribution.yml,0,none
+
+3. Grok-4 Reasoning
+
+ansible-role-container-registry-tasks-docker-distribution.yml,0,none
+
+4. Groud Truth
+
+ansible-role-container-registry-tasks-docker-distribution.yml,0,none

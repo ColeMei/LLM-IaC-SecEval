@@ -1,0 +1,77 @@
+1. Code Llama 7b
+ 
+NAME_OF_FILE,LINE_NUMBER,SMELL_CATEGORY
+{bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml},3,Hard-coded secret
+{bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml},5,Empty password
+{bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml},6,Hard-coded secret
+{bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml},7,Empty password
+{bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml},12,Admin by default
+
+2. GPT-4o
+
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,12,empty password
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,31,use of HTTP without SSL/TLS
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,32,use of HTTP without SSL/TLS
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,33,use of HTTP without SSL/TLS
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,37,hard-coded secret
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,41,hard-coded secret
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,45,hard-coded secret
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,6,suspicious comment
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,28,suspicious comment
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,54,suspicious comment
+
+2.1 GPT-4o Detailed
+
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,12,Empty password
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,23,Use of HTTP without SSL/TLS
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,24,Use of HTTP without SSL/TLS
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,34,Hard-coded secret
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,35,Hard-coded secret
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,35,Use of HTTP without SSL/TLS
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,36,Use of HTTP without SSL/TLS
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,37,Use of HTTP without SSL/TLS
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,40,Hard-coded secret
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,44,Hard-coded secret
+
+3. Grok-4 Reasoning
+
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,4,No integrity check
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,15,Admin by default
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,16,Empty password
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,16,Hard-coded secret
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,22,Use of HTTP without SSL/TLS
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,47,Admin by default
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,48,Hard-coded secret
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,50,Use of HTTP without SSL/TLS
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,51,Use of HTTP without SSL/TLS
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,52,Use of HTTP without SSL/TLS
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,56,Hard-coded secret
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,62,Hard-coded secret
+
+
+4. Claude Sonnet 4 Reasoning Detailed
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,15,Hard-coded secret
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,15,Admin by default
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,16,Empty password
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,47,Hard-coded secret
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,47,Admin by default
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,48,Hard-coded secret
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,49,Admin by default
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,55,Hard-coded secret
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,56,Hard-coded secret
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,61,Hard-coded secret
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,62,Hard-coded secret
+
+4. Groud Truth
+
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,15,Hard-coded secret,2
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,15,Admin by default,2
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,16,Empty password,3
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,47,Hard-coded secret,2
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,47,Admin by default,2
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,48,Hard-coded secret,3
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,55,Hard-coded secret,2
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,56,Hard-coded secret,3
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,61,Hard-coded secret,2
+bifrost-playbooks-roles-bifrost-keystone-install-defaults-main.yml,62,Hard-coded secret,3
+
