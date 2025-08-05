@@ -192,6 +192,10 @@ class GLITCHLLMFilter:
             # Save LLM analysis summary
             summary_file = output_dir / f"{base_name}_llm_summary.json"
             self._save_analysis_summary(filtered_detections, llm_results, summary_file)
+            
+            # Save prompts and responses for reproducibility
+            prompts_responses_file = output_dir / f"{base_name}_prompts_and_responses.json"
+            self._save_prompts_and_responses(prompts, llm_results, enhanced_detections, prompts_responses_file)
         
         return filtered_detections
     
@@ -240,6 +244,76 @@ class GLITCHLLMFilter:
             json.dump(summary, f, indent=2)
         
         logger.info(f"Saved analysis summary to {summary_file}")
+    
+    def _save_prompts_and_responses(
+        self, 
+        prompts: List[Tuple[int, str, str]], 
+        llm_results: Dict[int, LLMResponse], 
+        enhanced_detections: pd.DataFrame, 
+        output_file: Path
+    ):
+        """Save prompts and LLM responses for full reproducibility."""
+        logger.info(f"Saving prompts and responses to {output_file}")
+        
+        # Build comprehensive prompt/response log
+        prompt_response_log = {
+            "timestamp": datetime.now().isoformat(),
+            "model": self.llm_client.model,
+            "total_prompts": len(prompts),
+            "successful_responses": len(llm_results),
+            "interactions": []
+        }
+        
+        # Process each prompt and its corresponding response
+        for idx, detection_id, prompt in prompts:
+            # Get detection metadata
+            detection_row = enhanced_detections.loc[idx] if idx in enhanced_detections.index else None
+            
+            # Get LLM response
+            llm_response = llm_results.get(idx)
+            
+            interaction = {
+                "detection_index": int(idx),
+                "detection_id": detection_id,
+                "detection_metadata": {
+                    "file_path": detection_row["file_path"] if detection_row is not None else "",
+                    "line_number": int(detection_row["line_number"]) if detection_row is not None and pd.notna(detection_row["line_number"]) else None,
+                    "smell_category": detection_row["smell_category"] if detection_row is not None else "",
+                    "context_success": bool(detection_row["context_success"]) if detection_row is not None else False,
+                    "is_true_positive": bool(detection_row["is_true_positive"]) if detection_row is not None else False
+                },
+                "prompt": {
+                    "full_text": prompt,
+                    "character_count": len(prompt),
+                    "word_count": len(prompt.split())
+                },
+                "llm_response": None
+            }
+            
+            # Add LLM response if available
+            if llm_response:
+                interaction["llm_response"] = {
+                    "decision": llm_response.decision.value,
+                    "raw_response": llm_response.raw_response,
+                    "confidence_score": llm_response.confidence_score,
+                    "processing_time_seconds": llm_response.processing_time,
+                    "tokens_used": llm_response.tokens_used,
+                    "error_message": llm_response.error_message,
+                    "response_length": len(llm_response.raw_response) if llm_response.raw_response else 0
+                }
+            else:
+                interaction["llm_response"] = {
+                    "status": "no_response",
+                    "reason": "context_extraction_failed_or_llm_error"
+                }
+            
+            prompt_response_log["interactions"].append(interaction)
+        
+        # Save to JSON with pretty formatting for readability
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(prompt_response_log, f, indent=2, ensure_ascii=False)
+        
+        logger.info(f"Saved {len(prompt_response_log['interactions'])} prompt/response pairs to {output_file}")
 
 
 def main():
