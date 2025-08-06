@@ -1,11 +1,15 @@
-# Pipeline Documentation
+# LLM Pure Evaluation Pipeline
 
-Technical documentation for the automated LLM evaluation pipeline.
+Technical documentation for the pure LLM-based security smell detection pipeline.
+
+## Overview
+
+The **LLM Pure** methodology evaluates Infrastructure as Code (IaC) files directly using Large Language Models without any pre-filtering by static analysis tools. This approach tests the standalone capability of LLMs to detect security smells in IaC scripts.
 
 ## Architecture
 
 ```
-src/automated/
+src/llm_pure/
 ├── config.py           # Configuration and paths
 ├── pipeline.py         # Main orchestration
 ├── prompt_builder.py   # Modular prompt construction
@@ -18,11 +22,16 @@ src/automated/
 src/prompts/
 ├── Template_detailed.txt           # Full context template
 └── Template_instructions_only.txt  # Instructions only (modular)
+
+experiments/llm_pure/
+├── run_evaluation.py    # Main execution script
+├── validate_pipeline.py # Pipeline validation
+└── cleanup_results.py   # Results management
 ```
 
-## Script Usage
+## Execution
 
-### `scripts/run_evaluation.py`
+### `experiments/llm_pure/run_evaluation.py`
 
 **Key Arguments:**
 
@@ -45,32 +54,32 @@ src/prompts/
 
 ```bash
 # Basic usage (Ollama - default)
-python scripts/run_evaluation.py
+python experiments/llm_pure/run_evaluation.py
 
 # OpenAI GPT-4o-mini
 export OPENAI_API_KEY="your-key"
-python scripts/run_evaluation.py --client openai
+python experiments/llm_pure/run_evaluation.py --client openai
 
 # Custom model and parameters
-python scripts/run_evaluation.py --client openai --model gpt-4 --temperature 0.05
+python experiments/llm_pure/run_evaluation.py --client openai --model gpt-4 --temperature 0.05
 
 # Small test with debugging
-python scripts/run_evaluation.py --client openai --small-batch --show-prompts
+python experiments/llm_pure/run_evaluation.py --client openai --small-batch --show-prompts
 
 # Model comparison
-python scripts/run_evaluation.py --client ollama --model codellama:7b --limit 5
-python scripts/run_evaluation.py --client openai --model gpt-4o-mini --limit 5
+python experiments/llm_pure/run_evaluation.py --client ollama --model codellama:7b --limit 5
+python experiments/llm_pure/run_evaluation.py --client openai --model gpt-4o-mini --limit 5
 
 # Technology-specific evaluation
-python scripts/run_evaluation.py --client openai --iac-tech ansible --limit 20
+python experiments/llm_pure/run_evaluation.py --client openai --iac-tech ansible --limit 20
 ```
 
 ## Multi-Client Setup
 
-| Client     | Type  | Setup Commands                                 | Default Model   |
-| ---------- | ----- | ---------------------------------------------- | --------------- |
-| **Ollama** | Local | `ollama serve` <br> `ollama pull codellama:7b` | `codellama:7b`  |
-| **OpenAI** | Cloud | `export OPENAI_API_KEY="your-key"`             | `gpt-4o-mini` |
+| Client     | Type  | Setup Commands                                 | Default Model  |
+| ---------- | ----- | ---------------------------------------------- | -------------- |
+| **Ollama** | Local | `ollama serve` <br> `ollama pull codellama:7b` | `codellama:7b` |
+| **OpenAI** | Cloud | `export OPENAI_API_KEY="your-key"`             | `gpt-4o-mini`  |
 
 ## Validation & Testing
 
@@ -78,7 +87,7 @@ python scripts/run_evaluation.py --client openai --iac-tech ansible --limit 20
 
 ```bash
 # Test all components + both clients
-python scripts/validate_pipeline.py
+python experiments/llm_pure/validate_pipeline.py
 ```
 
 **Sample Output:**
@@ -98,18 +107,18 @@ VALIDATION SUMMARY
 
 ```bash
 # Test specific clients only
-python scripts/run_evaluation.py --client ollama --validate-only
-python scripts/run_evaluation.py --client openai --validate-only
+python experiments/llm_pure/run_evaluation.py --client ollama --validate-only
+python experiments/llm_pure/run_evaluation.py --client openai --validate-only
 ```
 
 ## Prompt Debugging
 
 ```bash
 # Console display
-python scripts/run_evaluation.py --show-prompts --limit 1
+python experiments/llm_pure/run_evaluation.py --show-prompts --limit 1
 
-# Save to files (creates: results/prompts/prompt_modular_filename_timestamp.txt)
-python scripts/run_evaluation.py --save-prompts --small-batch
+# Save to files (creates: results/llm_pure/prompts/prompt_modular_filename_timestamp.txt)
+python experiments/llm_pure/run_evaluation.py --save-prompts --small-batch
 ```
 
 ## Client Comparison
@@ -132,10 +141,10 @@ python scripts/run_evaluation.py --save-prompts --small-batch
 
 **Output Files:**
 
-- `results/full_evaluation_*.json` - Complete reports
-- `results/batch_*.json` - Per-technology results
-- `results/raw_responses/` - Individual LLM responses
-- `results/prompts/` - Constructed prompts (when `--save-prompts` used)
+- `results/llm_pure/full_evaluation_*.json` - Complete reports
+- `results/llm_pure/batch_*.json` - Per-technology results
+- `results/llm_pure/raw_responses/` - Individual LLM responses
+- `results/llm_pure/prompts/` - Constructed prompts (when `--save-prompts` used)
 
 **Sample Output:**
 
