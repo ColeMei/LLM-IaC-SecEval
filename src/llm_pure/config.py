@@ -13,7 +13,7 @@ class PipelineConfig:
     # Project paths
     project_root: Path = Path(__file__).parent.parent.parent
     data_dir: Path = project_root / "data"
-    results_dir: Path = project_root / "results"
+    results_dir: Path = project_root / "results" / "llm_pure"
     prompts_dir: Path = project_root / "src" / "prompts"
     
     # Dataset configurations

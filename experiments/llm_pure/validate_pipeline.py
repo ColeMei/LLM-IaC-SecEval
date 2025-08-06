@@ -6,12 +6,12 @@ import sys
 from pathlib import Path
 
 # Add src to path for imports
-sys.path.append(str(Path(__file__).parent.parent / "src"))
+sys.path.append(str(Path(__file__).parent.parent.parent / "src"))
 
-from llms.pipeline import LLMIaCPipeline
-from llms import create_client, SUPPORTED_CLIENTS
-from llms.file_processor import FileProcessor
-from llms.config import config
+from llm_pure.pipeline import LLMIaCPipeline
+from llm_pure import create_client, SUPPORTED_CLIENTS
+from llm_pure.file_processor import FileProcessor
+from llm_pure.config import config
 
 def test_file_processing():
     """Test file processing components"""
@@ -169,7 +169,7 @@ def main():
         print(f"\n🎉 Pipeline validated with {', '.join(working_clients).upper()} client(s)!")
         print("    Ready to use:")
         for client in working_clients:
-            print(f"      python scripts/run_evaluation.py --client {client} --small-batch")
+            print(f"      python experiments/llm_pure/run_evaluation.py --client {client} --small-batch")
         return 0
     else:
         print("\n⚠️  No clients working. Setup required:")

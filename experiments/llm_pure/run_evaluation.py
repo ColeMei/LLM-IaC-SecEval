@@ -7,11 +7,11 @@ import argparse
 from pathlib import Path
 
 # Add src to path for imports
-sys.path.append(str(Path(__file__).parent.parent / "src"))
+sys.path.append(str(Path(__file__).parent.parent.parent / "src"))
 
-from llms.pipeline import LLMIaCPipeline
-from llms import create_client, SUPPORTED_CLIENTS
-from llms.config import config
+from llm_pure.pipeline import LLMIaCPipeline
+from llm_pure import create_client, SUPPORTED_CLIENTS
+from llm_pure.config import config
 
 def main():
     parser = argparse.ArgumentParser(description="Run LLM-IaC-SecEval automated pipeline")

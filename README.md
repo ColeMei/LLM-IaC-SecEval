@@ -62,13 +62,20 @@ Our research focuses on detecting **9 categories of security smells** commonly f
 
 ```
 LLM-IaC-SecEval/
-├── src/
-│   ├── llms/          # Pure LLM evaluation pipeline
-│   └── hybrid/        # GLITCH + LLM hybrid approach
-├── experiments/       # Experimental notebooks and results
-├── data/             # Datasets and ground truth annotations
-├── results/          # Evaluation outputs and metrics
-└── scripts/          # Automation and utility scripts
+├── data/                          # Original datasets
+├── docs/                          # Documentation
+├── experiments/                   # Execution interface
+│   ├── llm_pure/                 # Pure LLM method execution (scripts)
+│   ├── llm_postfilter/           # Hybrid method execution (notebooks + data)
+│   ├── data-analysis/            # Analysis notebooks
+│   └── zero-shot/                # Zero-shot experiments
+├── results/                       # All results from both methodologies
+│   ├── llm_pure/                 # Results from pure LLM method
+│   └── llm_postfilter/           # Results from hybrid method
+└── src/                           # Code logic only
+    ├── llm_pure/                 # Pure LLM implementation
+    ├── llm_postfilter/           # Hybrid implementation
+    └── prompts/                  # Prompt templates
 ```
 
 ## Research Status

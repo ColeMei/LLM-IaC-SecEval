@@ -17,9 +17,9 @@ from collections import defaultdict
 from typing import Dict, List, Tuple
 
 # Add src to path for pipeline imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-from llms.config import config
+from llm_pure.config import config
 
 
 class ResultsCleanup:
