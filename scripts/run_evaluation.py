@@ -9,9 +9,9 @@ from pathlib import Path
 # Add src to path for imports
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
-from automated.pipeline import LLMIaCPipeline
-from automated import create_client, SUPPORTED_CLIENTS
-from automated.config import config
+from llms.pipeline import LLMIaCPipeline
+from llms import create_client, SUPPORTED_CLIENTS
+from llms.config import config
 
 def main():
     parser = argparse.ArgumentParser(description="Run LLM-IaC-SecEval automated pipeline")

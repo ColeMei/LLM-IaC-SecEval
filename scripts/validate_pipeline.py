@@ -8,10 +8,10 @@ from pathlib import Path
 # Add src to path for imports
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
-from automated.pipeline import LLMIaCPipeline
-from automated import create_client, SUPPORTED_CLIENTS
-from automated.file_processor import FileProcessor
-from automated.config import config
+from llms.pipeline import LLMIaCPipeline
+from llms import create_client, SUPPORTED_CLIENTS
+from llms.file_processor import FileProcessor
+from llms.config import config
 
 def test_file_processing():
     """Test file processing components"""

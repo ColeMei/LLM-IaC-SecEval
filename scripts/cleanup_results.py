@@ -19,7 +19,7 @@ from typing import Dict, List, Tuple
 # Add src to path for pipeline imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from automated.config import config
+from llms.config import config
 
 
 class ResultsCleanup:
