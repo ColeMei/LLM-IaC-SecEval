@@ -104,6 +104,11 @@ jupyter notebook experiments/llm_postfilter/notebooks/02_llm_experiment.ipynb
 3. Evaluate GLITCH vs GLITCH+LLM performance
 4. Generate comprehensive reports and analysis
 
+### Context Window
+
+- Configure the number of lines around the target line used in prompts (`context_lines`).
+- Set in the notebook via `CONTEXT_LINES` (0 = target line only; default 3).
+
 ```
 experiments/llm_postfilter/data/llm_results/    # Latest/working results
 results/llm_postfilter/                         # Archived results

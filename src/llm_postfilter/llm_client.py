@@ -154,7 +154,7 @@ class OpenAIClient(BaseLLMClient):
         self.model = model
         self.client = OpenAI(api_key=self.api_key)
         logger.info(f"Initialized OpenAI client with model: {model}")
-
+    
     def evaluate_detection(self, prompt: str, max_tokens: int = 50) -> LLMResponse:
         start = time.time()
         for attempt in range(self.max_retries):
@@ -261,10 +261,10 @@ class AnthropicClient(BaseLLMClient):
                 content_parts = msg.content or []
                 text = "".join([getattr(part, "text", "") for part in content_parts]).strip()
                 decision = _parse_decision_from_text(text)
-                tokens_used = getattr(msg, "usage", None)
+                usage = getattr(msg, "usage", None)
                 total_tokens = None
-                if tokens_used and hasattr(tokens_used, "input_tokens") and hasattr(tokens_used, "output_tokens"):
-                    total_tokens = int(tokens_used.input_tokens) + int(tokens_used.output_tokens)
+                if usage and hasattr(usage, "input_tokens") and hasattr(usage, "output_tokens"):
+                    total_tokens = int(usage.input_tokens) + int(usage.output_tokens)
                 return LLMResponse(
                     decision=decision,
                     raw_response=text,

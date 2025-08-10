@@ -54,6 +54,7 @@ class GLITCHLLMFilter:
         model: str = "gpt-4o-mini",
         provider: str = Provider.OPENAI.value,
         base_url: Optional[str] = None,
+        context_lines: int = 3,
     ):
         """Initialize the LLM filter with all required components."""
         self.project_root = Path(project_root)
@@ -69,7 +70,8 @@ class GLITCHLLMFilter:
         )
         
         # Configuration
-        self.context_lines = 3  # ±3 lines around detection
+        # Allow 0 for target-line-only; clamp negatives to 0
+        self.context_lines = max(0, int(context_lines))
         
         logger.info("Initialized GLITCH+LLM filter pipeline")
     
