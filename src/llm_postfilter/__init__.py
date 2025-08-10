@@ -13,7 +13,13 @@ The hybrid approach leverages the strengths of both:
 from .data_extractor import GLITCHDetectionExtractor
 from .context_extractor import CodeContextExtractor
 from .prompt_templates import SecuritySmellPrompts, SecuritySmell
-from .llm_client import GPT4OMiniClient, LLMDecision, LLMResponse
+from .llm_client import (
+    GPT4OMiniClient,
+    LLMDecision,
+    LLMResponse,
+    Provider,
+    create_llm_client,
+)
 from .llm_filter import GLITCHLLMFilter
 from .evaluator import HybridEvaluator
 
@@ -25,6 +31,8 @@ __all__ = [
     'GPT4OMiniClient',
     'LLMDecision',
     'LLMResponse',
+    'Provider',
+    'create_llm_client',
     'GLITCHLLMFilter',
     'HybridEvaluator'
 ]

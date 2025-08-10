@@ -22,12 +22,24 @@ try:
     # Relative imports (when used as package)
     from .context_extractor import CodeContextExtractor
     from .prompt_templates import SecuritySmellPrompts, SecuritySmell
-    from .llm_client import GPT4OMiniClient, LLMDecision, LLMResponse
+    from .llm_client import (
+        create_llm_client,
+        Provider,
+        GPT4OMiniClient,  # backward compatibility alias
+        LLMDecision,
+        LLMResponse,
+    )
 except ImportError:
     # Absolute imports (when run directly)
     from context_extractor import CodeContextExtractor
     from prompt_templates import SecuritySmellPrompts, SecuritySmell
-    from llm_client import GPT4OMiniClient, LLMDecision, LLMResponse
+    from llm_client import (
+        create_llm_client,
+        Provider,
+        GPT4OMiniClient,  # backward compatibility alias
+        LLMDecision,
+        LLMResponse,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -35,13 +47,26 @@ logger = logging.getLogger(__name__)
 class GLITCHLLMFilter:
     """Main LLM post-filter for GLITCH detections."""
     
-    def __init__(self, project_root: Path, api_key: Optional[str] = None, model: str = "gpt-4o-mini"):
+    def __init__(
+        self,
+        project_root: Path,
+        api_key: Optional[str] = None,
+        model: str = "gpt-4o-mini",
+        provider: str = Provider.OPENAI.value,
+        base_url: Optional[str] = None,
+    ):
         """Initialize the LLM filter with all required components."""
         self.project_root = Path(project_root)
         
         # Initialize components
         self.context_extractor = CodeContextExtractor(project_root)
-        self.llm_client = GPT4OMiniClient(api_key=api_key, model=model)
+        # Create a provider-specific client (OpenAI by default)
+        self.llm_client = create_llm_client(
+            provider=provider,
+            model=model,
+            api_key=api_key,
+            base_url=base_url,
+        )
         
         # Configuration
         self.context_lines = 3  # ±3 lines around detection

@@ -30,7 +30,7 @@ This creates **alert fatigue** and reduces tool adoption in practice.
 ### Two-Stage Detection Pipeline
 
 1. **Stage 1 - GLITCH Detection**: Static analysis identifies potential security smells (high recall)
-2. **Stage 2 - LLM Post-Filter**: GPT-4o mini evaluates each detection with context (improved precision)
+2. **Stage 2 - LLM Post-Filter**: An LLM evaluates each detection with context (improved precision)
 
 ### Target Security Smells
 
@@ -66,7 +66,7 @@ experiments/llm_postfilter/
 
 ## Execution
 
-The pipeline is executed through Jupyter notebooks that provide interactive analysis and visualization:
+The pipeline is executed through Jupyter notebooks that provide interactive analysis and visualization. The LLM provider and model are configurable.
 
 ### Data Preparation
 
@@ -88,9 +88,18 @@ jupyter notebook experiments/llm_postfilter/notebooks/01_data_extraction.ipynb
 jupyter notebook experiments/llm_postfilter/notebooks/02_llm_experiment.ipynb
 ```
 
+**Provider/Model Selection:**
+
+- Manual override in the notebook (recommended): set `provider`, `model`, and optional `base_url` in the first setup cell. Supported providers: `openai`, `anthropic`, `ollama`, `openai_compatible`.
+- Or via environment variables before launching Jupyter:
+  - `LLM_PROVIDER` (one of above)
+  - `LLM_MODEL` (e.g., `gpt-4o`, `claude-3-5-sonnet-latest`, `codellama:7b`)
+  - `LLM_BASE_URL` for Ollama or OpenAI-compatible endpoints
+  - API key per provider: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `OPENAI_COMPATIBLE_API_KEY`
+
 **Process:**
 
-1. Initialize LLM client (GPT-4o mini or custom model)
+1. Initialize LLM client (selected provider/model)
 2. Apply LLM filtering to each detection with context
 3. Evaluate GLITCH vs GLITCH+LLM performance
 4. Generate comprehensive reports and analysis
