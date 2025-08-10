@@ -21,7 +21,7 @@ from datetime import datetime
 try:
     # Relative imports (when used as package)
     from .context_extractor import CodeContextExtractor
-    from .prompt_templates import SecuritySmellPrompts, SecuritySmell
+    from .prompt_templates import SecuritySmellPrompts, SecuritySmell, PromptStyle
     from .llm_client import (
         create_llm_client,
         Provider,
@@ -32,7 +32,7 @@ try:
 except ImportError:
     # Absolute imports (when run directly)
     from context_extractor import CodeContextExtractor
-    from prompt_templates import SecuritySmellPrompts, SecuritySmell
+    from prompt_templates import SecuritySmellPrompts, SecuritySmell, PromptStyle
     from llm_client import (
         create_llm_client,
         Provider,
@@ -55,6 +55,7 @@ class GLITCHLLMFilter:
         provider: str = Provider.OPENAI.value,
         base_url: Optional[str] = None,
         context_lines: int = 3,
+        prompt_style: str = PromptStyle.DEFINITION_BASED.value,
     ):
         """Initialize the LLM filter with all required components."""
         self.project_root = Path(project_root)
@@ -73,7 +74,13 @@ class GLITCHLLMFilter:
         # Allow 0 for target-line-only; clamp negatives to 0
         self.context_lines = max(0, int(context_lines))
         
-        logger.info("Initialized GLITCH+LLM filter pipeline")
+        # Prompt style configuration
+        self.prompt_style = SecuritySmellPrompts.get_prompt_style_from_string(prompt_style)
+        if not self.prompt_style:
+            logger.warning(f"Unknown prompt style '{prompt_style}', defaulting to definition_based")
+            self.prompt_style = PromptStyle.DEFINITION_BASED
+        
+        logger.info(f"Initialized GLITCH+LLM filter pipeline with {self.prompt_style.value} prompt style")
     
     def load_detections(self, detection_file: Path) -> pd.DataFrame:
         """Load GLITCH detections from CSV file."""
@@ -101,7 +108,7 @@ class GLITCHLLMFilter:
         return enhanced_df
     
     def generate_prompts(self, enhanced_detections: pd.DataFrame) -> List[Tuple[int, str, str]]:
-        """Generate LLM prompts for all detections."""
+        """Generate LLM prompts for all detections using the configured prompt style."""
         prompts = []
         
         for idx, detection in enhanced_detections.iterrows():
@@ -116,11 +123,15 @@ class GLITCHLLMFilter:
                 logger.warning(f"Unknown smell category: {detection['smell_category']}")
                 continue
             
-            # Generate prompt
-            prompt = SecuritySmellPrompts.create_prompt(smell, detection['context_snippet'])
+            # Generate prompt using the configured style
+            prompt = SecuritySmellPrompts.create_prompt(
+                smell, 
+                detection['context_snippet'],
+                style=self.prompt_style
+            )
             prompts.append((idx, detection['detection_id'], prompt))
         
-        logger.info(f"Generated {len(prompts)} prompts for LLM evaluation")
+        logger.info(f"Generated {len(prompts)} prompts for LLM evaluation using {self.prompt_style.value} style")
         return prompts
     
     def evaluate_with_llm(self, prompts: List[Tuple[int, str, str]]) -> Dict[int, LLMResponse]:
@@ -246,6 +257,8 @@ class GLITCHLLMFilter:
         summary = {
             "timestamp": datetime.now().isoformat(),
             "model": self.llm_client.model,
+            "prompt_style": self.prompt_style.value,
+            "context_lines": self.context_lines,
             "filtering_results": {
                 "total_detections": int(total_detections),
                 "kept_detections": int(kept_detections),
@@ -286,6 +299,8 @@ class GLITCHLLMFilter:
         prompt_response_log = {
             "timestamp": datetime.now().isoformat(),
             "model": self.llm_client.model,
+            "prompt_style": self.prompt_style.value,
+            "context_lines": self.context_lines,
             "total_prompts": len(prompts),
             "successful_responses": len(llm_results),
             "interactions": []

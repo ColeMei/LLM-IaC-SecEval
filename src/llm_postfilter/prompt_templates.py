@@ -16,6 +16,12 @@ class SecuritySmell(Enum):
     WEAK_CRYPTOGRAPHY = "Use of weak cryptography algorithms"
 
 
+class PromptStyle(Enum):
+    """Enumeration of available prompt styles."""
+    DEFINITION_BASED = "definition_based"
+    STATIC_ANALYSIS_RULES = "static_analysis_rules"
+
+
 class SecuritySmellPrompts:
     """Container for security smell definitions and prompt templates."""
     
@@ -77,8 +83,8 @@ NOT weak cryptography:
     }
     
     @classmethod
-    def get_base_prompt(cls) -> str:
-        """Get the base prompt template common to all security smells."""
+    def get_definition_based_prompt(cls) -> str:
+        """Get the definition-based prompt template."""
         return """You are an expert in Infrastructure-as-Code (IaC) security analysis specializing in Chef cookbooks, Puppet manifests, and Ansible playbooks.
 
 A static analysis tool has flagged a potential security issue in an IaC script. Your task is to determine whether this detection represents a true instance of the specified security smell.
@@ -100,16 +106,92 @@ Based on the definition above and the code context, is this a true instance of "
 Answer (YES or NO only):"""
 
     @classmethod
-    def create_prompt(cls, smell: SecuritySmell, code_snippet: str) -> str:
+    def get_static_analysis_rules_prompt(cls) -> str:
+        """Get the static analysis rules-based prompt template."""
+        return """You are a static analyzer for Infrastructure-as-Code (IaC) scripts.
+
+Your task is to analyze the **raw code** of an IaC script (e.g. Chef, Puppet) and detect any **security smells** according to the rules and keyword-based functions below.
+
+You must parse the script internally, identify patterns, and output a list of security smells with corresponding line numbers and code excerpts.
+
+---
+
+### SECURITY SMELL DETECTION RULES
+
+Smell Name: Hard-coded secret  
+Rule: (isAttribute(x) ∨ isVariable(x)) ∧ (isPassword(x.name) ∨ isSecret(x.name) ∨ isUser(x.name)) ∧ ¬x.has_variable
+
+Smell Name: Suspicious comment  
+Rule: isComment(x) ∧ hasWrongWords(x.content)
+
+Smell Name: Use of weak crypto algorithm  
+Rule: (isAttribute(x) ∨ isVariable(x)) ∧ isWeakCrypt(x.value) ∧ ¬hasWeakCryptWhitelist(x.name) ∧ ¬hasWeakCryptWhitelist(x.value)
+
+---
+
+### STRING PATTERN MATCHING FUNCTIONS
+
+Use the following keyword heuristics to apply the detection rules:
+
+- isUser(): "user", "uname", "username", "login", "userid", "loginid"  
+- isPassword(): "pass", "pwd", "password", "passwd", "passno", "pass-no"  
+- isSecret(): "auth_token", "authentication_token", "secret", "ssh_key"  
+- hasWrongWords(): "bug", "debug", "todo", "hack", "solve", "fixme"  
+- isWeakCrypt(): "md5", "sha1", "arcfour"  
+- hasWeakCryptWhitelist(): "checksum"
+
+---
+
+### INSTRUCTIONS
+
+1. Analyze the following **raw IaC code** line-by-line.
+2. For the specific smell "{smell_name}", determine if it matches the detection rule.
+3. Focus on actual security implications, not just keyword presence.
+4. Answer with ONLY "YES" or "NO" - no explanations needed.
+
+---
+
+### RAW CODE INPUT
+
+{code_snippet}
+
+---
+
+Based on the static analysis rules above, does this code contain a true instance of "{smell_name}"?
+
+Answer (YES or NO only):"""
+
+    @classmethod
+    def get_base_prompt(cls, style: PromptStyle = PromptStyle.DEFINITION_BASED) -> str:
+        """Get the base prompt template for the specified style."""
+        if style == PromptStyle.STATIC_ANALYSIS_RULES:
+            return cls.get_static_analysis_rules_prompt()
+        else:
+            return cls.get_definition_based_prompt()
+
+    @classmethod
+    def create_prompt(
+        cls, 
+        smell: SecuritySmell, 
+        code_snippet: str, 
+        style: PromptStyle = PromptStyle.DEFINITION_BASED
+    ) -> str:
         """Create a complete prompt for a specific security smell and code snippet."""
-        base_prompt = cls.get_base_prompt()
-        definition = cls.DEFINITIONS[smell]
-        
-        return base_prompt.format(
-            smell_definition=definition,
-            smell_name=smell.value,
-            code_snippet=code_snippet
-        )
+        if style == PromptStyle.STATIC_ANALYSIS_RULES:
+            base_prompt = cls.get_static_analysis_rules_prompt()
+            return base_prompt.format(
+                smell_name=smell.value,
+                code_snippet=code_snippet
+            )
+        else:
+            # Definition-based style (default/backward compatible)
+            base_prompt = cls.get_definition_based_prompt()
+            definition = cls.DEFINITIONS[smell]
+            return base_prompt.format(
+                smell_definition=definition,
+                smell_name=smell.value,
+                code_snippet=code_snippet
+            )
     
     @classmethod
     def get_smell_from_string(cls, smell_name: str) -> Optional[SecuritySmell]:
@@ -120,10 +202,25 @@ Answer (YES or NO only):"""
         return None
     
     @classmethod
-    def get_validation_prompt(cls, smell: SecuritySmell) -> str:
+    def get_prompt_style_from_string(cls, style_name: str) -> Optional[PromptStyle]:
+        """Convert string style name to PromptStyle enum."""
+        for style in PromptStyle:
+            if style.value == style_name:
+                return style
+        return None
+    
+    @classmethod
+    def get_validation_prompt(cls, smell: SecuritySmell, style: PromptStyle = PromptStyle.DEFINITION_BASED) -> str:
         """Get a validation prompt to test LLM understanding of the smell definition."""
-        definition = cls.DEFINITIONS[smell]
-        return f"""Please confirm your understanding of "{smell.value}":
+        if style == PromptStyle.STATIC_ANALYSIS_RULES:
+            return f"""Please confirm your understanding of the static analysis rules for "{smell.value}":
+
+Based on the rule-based detection approach, do you understand how to identify {smell.value} using logical conditions and keyword matching functions?
+
+Please respond with "YES" if you understand, or ask for clarification if needed."""
+        else:
+            definition = cls.DEFINITIONS[smell]
+            return f"""Please confirm your understanding of "{smell.value}":
 
 {definition}
 
@@ -185,8 +282,8 @@ class PromptValidator:
 
 
 def main():
-    """Test prompt generation."""
-    # Test prompt creation for each smell
+    """Test prompt generation with both styles."""
+    # Test prompt creation for each smell with both styles
     test_cases = PromptValidator.create_test_cases()
     
     for smell, examples in test_cases.items():
@@ -194,15 +291,18 @@ def main():
         print(f"Testing {smell.value}")
         print(f"{'='*60}")
         
-        # Test positive example
-        prompt = SecuritySmellPrompts.create_prompt(smell, examples["positive_example"])
-        print(f"\nPositive Example Prompt (should be YES):")
-        print(prompt[:200] + "..." if len(prompt) > 200 else prompt)
-        
-        # Test negative example  
-        prompt = SecuritySmellPrompts.create_prompt(smell, examples["negative_example"])
-        print(f"\nNegative Example Prompt (should be NO):")
-        print(prompt[:200] + "..." if len(prompt) > 200 else prompt)
+        for style in PromptStyle:
+            print(f"\n--- {style.value.upper().replace('_', ' ')} STYLE ---")
+            
+            # Test positive example
+            prompt = SecuritySmellPrompts.create_prompt(smell, examples["positive_example"], style)
+            print(f"\nPositive Example Prompt (should be YES):")
+            print(prompt[:300] + "..." if len(prompt) > 300 else prompt)
+            
+            # Test negative example  
+            prompt = SecuritySmellPrompts.create_prompt(smell, examples["negative_example"], style)
+            print(f"\nNegative Example Prompt (should be NO):")
+            print(prompt[:300] + "..." if len(prompt) > 300 else prompt)
 
 
 if __name__ == "__main__":
