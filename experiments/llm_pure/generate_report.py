@@ -182,7 +182,7 @@ class ExperimentReportGenerator:
         return pd.DataFrame(detailed_data)
     
     def create_glitch_comparison_table(self, experiments: List[Dict[str, Any]]) -> pd.DataFrame:
-        """Create table in exact GLITCH paper format for easy comparison"""
+        """Create table in exact GLITCH paper format with TP/FP/Occurrence for easy comparison"""
         
         # GLITCH baseline data from the paper (for reference)
         glitch_data = {
@@ -197,46 +197,119 @@ class ExperimentReportGenerator:
             'Missing default in case statement': {'precision': 0.83, 'recall': 1.0}
         }
         
+        # Get IaC technology from first experiment
+        iac_tech = experiments[0]['iac_technology'] if experiments else 'unknown'
+        
         # Create table structure
         table_data = []
         
         for smell in self.security_smells:
-            row = {'Smell Name': smell}
+            # Get our experiment metrics for this smell
+            our_metrics = {}
+            occurrence = 0
             
-            # Add GLITCH baseline (for reference)
-            glitch_metrics = glitch_data.get(smell, {'precision': 0.0, 'recall': 0.0})
-            row['GLITCH_Precision'] = glitch_metrics['precision']
-            row['GLITCH_Recall'] = glitch_metrics['recall']
-            
-            # Add our experiments
             for exp in experiments:
                 prompt_style = exp['prompt_style']
                 smell_metrics = self.extract_smell_metrics(exp['overall_metrics'])
                 metrics = smell_metrics.get(smell, {})
                 
-                row[f'{prompt_style}_Precision'] = metrics.get('precision', 0.0)
-                row[f'{prompt_style}_Recall'] = metrics.get('recall', 0.0)
+                our_metrics[prompt_style] = {
+                    'precision': metrics.get('precision', 0.0),
+                    'recall': metrics.get('recall', 0.0),
+                    'tp': metrics.get('true_positives', 0),
+                    'fp': metrics.get('false_positives', 0),
+                    'fn': metrics.get('false_negatives', 0),
+                    'support': metrics.get('support', 0)
+                }
+                
+                # Use support as ground truth occurrence (should be same across experiments)
+                if metrics.get('support', 0) > 0:
+                    occurrence = metrics.get('support', 0)
+            
+            # Calculate GLITCH TP/FP based on precision/recall and our ground truth
+            glitch_metrics = glitch_data.get(smell, {'precision': 0.0, 'recall': 0.0})
+            if occurrence > 0 and glitch_metrics['recall'] > 0:
+                glitch_tp = int(glitch_metrics['recall'] * occurrence)
+                # Estimate GLITCH total predictions from precision: TP / precision = total_predictions
+                if glitch_metrics['precision'] > 0:
+                    glitch_total_pred = int(glitch_tp / glitch_metrics['precision'])
+                    glitch_fp = glitch_total_pred - glitch_tp
+                else:
+                    glitch_fp = 0  # If precision is 0, assume many false positives
+            else:
+                glitch_tp = 0
+                glitch_fp = 0
+            
+            row = {
+                'IaC_Technology': iac_tech,
+                'Security_Smell': smell,
+                'Ground_Truth_Occurrence': occurrence,
+                
+                # GLITCH metrics
+                'GLITCH_Precision': f"{glitch_metrics['precision']:.3f}",
+                'GLITCH_Recall': f"{glitch_metrics['recall']:.3f}",
+                'GLITCH_TP': glitch_tp,
+                'GLITCH_FP': glitch_fp,
+            }
+            
+            # Add our LLM results for each experiment
+            for exp in experiments:
+                prompt_style = exp['prompt_style']
+                model_name = exp['model_name']
+                metrics = our_metrics.get(prompt_style, {})
+                
+                # Create column prefix like "LLM_gpt4omini_definition_based"
+                prefix = f"LLM_{model_name}_{prompt_style}".replace('-', '_').replace('.', '_')
+                
+                row.update({
+                    f'{prefix}_Precision': f"{metrics.get('precision', 0.0):.3f}",
+                    f'{prefix}_Recall': f"{metrics.get('recall', 0.0):.3f}",
+                    f'{prefix}_TP': metrics.get('tp', 0),
+                    f'{prefix}_FP': metrics.get('fp', 0),
+                })
             
             table_data.append(row)
         
-        # Add average row
-        avg_row = {'Smell Name': 'Average'}
+        # Add summary row with totals
+        total_row = {
+            'IaC_Technology': iac_tech,
+            'Security_Smell': 'TOTAL',
+            'Ground_Truth_Occurrence': sum(row['Ground_Truth_Occurrence'] for row in table_data),
+            'GLITCH_TP': sum(row['GLITCH_TP'] for row in table_data),
+            'GLITCH_FP': sum(row['GLITCH_FP'] for row in table_data),
+        }
         
-        # GLITCH average
-        glitch_precisions = [glitch_data[smell]['precision'] for smell in self.security_smells if smell in glitch_data]
-        glitch_recalls = [glitch_data[smell]['recall'] for smell in self.security_smells if smell in glitch_data]
-        avg_row['GLITCH_Precision'] = sum(glitch_precisions) / len(glitch_precisions)
-        avg_row['GLITCH_Recall'] = sum(glitch_recalls) / len(glitch_recalls)
+        # Add overall precision/recall for GLITCH
+        total_glitch_tp = total_row['GLITCH_TP'] 
+        total_glitch_fp = total_row['GLITCH_FP']
+        total_occurrence = total_row['Ground_Truth_Occurrence']
         
-        # Our experiments' averages
+        if total_glitch_tp + total_glitch_fp > 0:
+            total_row['GLITCH_Precision'] = f"{total_glitch_tp / (total_glitch_tp + total_glitch_fp):.3f}"
+        else:
+            total_row['GLITCH_Precision'] = "0.000"
+            
+        if total_occurrence > 0:
+            total_row['GLITCH_Recall'] = f"{total_glitch_tp / total_occurrence:.3f}"
+        else:
+            total_row['GLITCH_Recall'] = "0.000"
+        
+        # Add our LLM totals
         for exp in experiments:
             prompt_style = exp['prompt_style']
+            model_name = exp['model_name']
             overall = exp['overall_metrics'].get('overall', {})
             
-            avg_row[f'{prompt_style}_Precision'] = overall.get('precision', 0.0)
-            avg_row[f'{prompt_style}_Recall'] = overall.get('recall', 0.0)
+            prefix = f"LLM_{model_name}_{prompt_style}".replace('-', '_').replace('.', '_')
+            
+            total_row.update({
+                f'{prefix}_Precision': f"{overall.get('precision', 0.0):.3f}",
+                f'{prefix}_Recall': f"{overall.get('recall', 0.0):.3f}",
+                f'{prefix}_TP': overall.get('true_positives', 0),
+                f'{prefix}_FP': overall.get('false_positives', 0),
+            })
         
-        table_data.append(avg_row)
+        table_data.append(total_row)
         
         return pd.DataFrame(table_data)
     
