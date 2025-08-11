@@ -48,18 +48,21 @@ class ResultsCleanup:
         if self.results_dir.exists():
             for item in self.results_dir.iterdir():
                 if item.is_file():
+                    # Skip report files - they should not be archived
+                    if item.name.startswith('comparison_report_'):
+                        continue
                     experiment_id = self._extract_experiment_id(item.name)
                     if experiment_id:
                         analysis['current_experiments'][experiment_id].append(item)
                         analysis['total_current_files'] += 1
                         analysis['current_size_mb'] += item.stat().st_size / (1024 * 1024)
             
-            # Check subdirectories (prompts, raw_responses, evaluations)
+            # Check subdirectories (prompts, raw_responses, evaluations) - exclude reports
             for subdir in ['prompts', 'raw_responses', 'evaluations']:
                 subdir_path = self.results_dir / subdir
                 if subdir_path.exists():
                     for file_path in subdir_path.iterdir():
-                        if file_path.is_file():
+                    if file_path.is_file():
                             experiment_id = self._extract_experiment_id(file_path.name)
                             if experiment_id:
                                 analysis['current_experiments'][experiment_id].append(file_path)
@@ -166,9 +169,9 @@ class ResultsCleanup:
         if not experiment_ids:
             print("❌ No experiments selected")
             return False
-        
+            
         # Create archive directory
-        self.archive_dir.mkdir(exist_ok=True)
+            self.archive_dir.mkdir(exist_ok=True)
         
         archived_count = 0
         for exp_id in experiment_ids:
@@ -176,30 +179,30 @@ class ResultsCleanup:
             
             if files:
                 # Create experiment archive directory
-                exp_archive_dir = self.archive_dir / exp_id
-                exp_archive_dir.mkdir(exist_ok=True)
-                
+                    exp_archive_dir = self.archive_dir / exp_id
+                    exp_archive_dir.mkdir(exist_ok=True)
+                    
                 # Create subdirectories
-                (exp_archive_dir / "raw_responses").mkdir(exist_ok=True)
-                (exp_archive_dir / "prompts").mkdir(exist_ok=True) 
-                (exp_archive_dir / "evaluations").mkdir(exist_ok=True)
-                
+                    (exp_archive_dir / "raw_responses").mkdir(exist_ok=True)
+                    (exp_archive_dir / "prompts").mkdir(exist_ok=True)
+                    (exp_archive_dir / "evaluations").mkdir(exist_ok=True)
+                    
                 for file_path in files:
-                    try:
+                        try:
                         # Determine target directory
-                        if 'raw_responses' in str(file_path):
-                            target_dir = exp_archive_dir / "raw_responses"
-                        elif 'prompts' in str(file_path):
-                            target_dir = exp_archive_dir / "prompts"
-                        elif 'evaluations' in str(file_path):
-                            target_dir = exp_archive_dir / "evaluations"
-                        else:
-                            target_dir = exp_archive_dir
-                        
-                        shutil.move(str(file_path), str(target_dir / file_path.name))
-                        
-                    except Exception as e:
-                        print(f"❌ Failed to archive {file_path.name}: {e}")
+                            if 'raw_responses' in str(file_path):
+                                target_dir = exp_archive_dir / "raw_responses"
+                            elif 'prompts' in str(file_path):
+                                target_dir = exp_archive_dir / "prompts"
+                            elif 'evaluations' in str(file_path):
+                                target_dir = exp_archive_dir / "evaluations"
+                            else:
+                                target_dir = exp_archive_dir
+                            
+                            shutil.move(str(file_path), str(target_dir / file_path.name))
+                    
+                        except Exception as e:
+                            print(f"❌ Failed to archive {file_path.name}: {e}")
                 
                 print(f"📦 Archived {exp_id} ({len(files)} files)")
                 archived_count += len(files)
@@ -258,8 +261,8 @@ class ResultsCleanup:
         """Simple interactive cleanup menu"""
         while True:
             self.print_status()
-            
-            print(f"\n🧹 Cleanup Options:")
+        
+        print(f"\n🧹 Cleanup Options:")
             print(f"1. Archive current experiments")
             print(f"2. Clean archive (delete old archived experiments)")
             print(f"3. Exit")
@@ -272,16 +275,16 @@ class ResultsCleanup:
                 days = input("Delete archived experiments older than how many days? (default: 30): ").strip()
                 try:
                     days = int(days) if days else 30
-                except ValueError:
-                    print("❌ Invalid number of days")
+        except ValueError:
+            print("❌ Invalid number of days")
                     continue
                 
                 to_delete = self.clean_archive(days, dry_run=True)
                 if to_delete:
                     confirm = input(f"\nDelete these {len(to_delete)} archived experiments? (y/N): ").strip().lower()
-                    if confirm == 'y':
+        if confirm == 'y':
                         self.clean_archive(days, dry_run=False)
-            elif choice == "3":
+        elif choice == "3":
                 print("👋 Cleanup finished")
                 break
             else:
