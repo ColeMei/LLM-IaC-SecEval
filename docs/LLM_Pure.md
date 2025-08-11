@@ -6,13 +6,22 @@ Technical documentation for the pure LLM-based security smell detection pipeline
 
 The **LLM Pure** methodology evaluates Infrastructure as Code (IaC) files directly using Large Language Models without any pre-filtering by static analysis tools. This approach tests the standalone capability of LLMs to detect security smells in IaC scripts.
 
+## Prompt Styles
+
+Two distinct prompting approaches are supported:
+
+- **definition_based**: Human-readable security smell definitions with examples
+- **static_analysis_rules**: Formal logical rules inspired by GLITCH paper with keyword heuristics
+
+Both styles use identical structure and line numbering for consistent evaluation.
+
 ## Architecture
 
 ```
 src/llm_pure/
 ├── config.py           # Configuration and paths
 ├── pipeline.py         # Main orchestration
-├── prompt_builder.py   # Modular prompt construction
+├── prompt_builder.py   # Prompt construction with style support
 ├── model_client.py     # Abstract model interface
 ├── ollama_client.py    # Ollama implementation
 ├── openai_client.py    # OpenAI implementation
@@ -20,8 +29,8 @@ src/llm_pure/
 └── evaluator.py        # Metrics calculation
 
 src/prompts/
-├── Template_detailed.txt           # Full context template
-└── Template_instructions_only.txt  # Instructions only (modular)
+├── Template_definition_based.txt      # Definition-based style template
+└── Template_static_analysis_rules.txt # Static analysis rules style template
 
 experiments/llm_pure/
 ├── run_evaluation.py    # Main execution script
@@ -35,20 +44,20 @@ experiments/llm_pure/
 
 **Key Arguments:**
 
-| Argument           | Type    | Default           | Description                             |
-| ------------------ | ------- | ----------------- | --------------------------------------- |
-| `--client`         | Choice  | `ollama`          | LLM client: `ollama`, `openai`          |
-| `--model`          | String  | (varies)          | Model name (default varies by client)   |
-| `--ollama-url`     | String  | `localhost:11434` | Ollama server URL                       |
-| `--openai-api-key` | String  | (env var)         | OpenAI API key                          |
-| `--iac-tech`       | Choice  | All               | Technology: `ansible`, `chef`, `puppet` |
-| `--limit`          | Integer | No limit          | Max files per technology                |
-| `--no-modular`     | Flag    | False             | Use full context (disable modular)      |
-| `--small-batch`    | Flag    | False             | Quick test (5 files per tech)           |
-| `--show-prompts`   | Flag    | False             | Display prompts in console              |
-| `--save-prompts`   | Flag    | False             | Save prompts to files                   |
-| `--temperature`    | Float   | `0.1`             | Generation randomness (0.0-2.0)         |
-| `--max-tokens`     | Integer | `512`             | Max response tokens                     |
+| Argument           | Type    | Default            | Description                                               |
+| ------------------ | ------- | ------------------ | --------------------------------------------------------- |
+| `--client`         | Choice  | `ollama`           | LLM client: `ollama`, `openai`                            |
+| `--model`          | String  | (varies)           | Model name (default varies by client)                     |
+| `--ollama-url`     | String  | `localhost:11434`  | Ollama server URL                                         |
+| `--openai-api-key` | String  | (env var)          | OpenAI API key                                            |
+| `--iac-tech`       | Choice  | All                | Technology: `ansible`, `chef`, `puppet`                   |
+| `--limit`          | Integer | No limit           | Max files per technology                                  |
+| `--prompt-style`   | Choice  | `definition_based` | Prompt style: `definition_based`, `static_analysis_rules` |
+| `--small-batch`    | Flag    | False              | Quick test (5 files per tech)                             |
+| `--show-prompts`   | Flag    | False              | Display prompts in console                                |
+| `--save-prompts`   | Flag    | False              | Save prompts to files                                     |
+| `--temperature`    | Float   | `0.1`              | Generation randomness (0.0-2.0)                           |
+| `--max-tokens`     | Integer | `512`              | Max response tokens                                       |
 
 **Usage Examples:**
 
@@ -62,6 +71,10 @@ python experiments/llm_pure/run_evaluation.py --client openai
 
 # Custom model and parameters
 python experiments/llm_pure/run_evaluation.py --client openai --model gpt-4 --temperature 0.05
+
+# Compare prompt styles
+python experiments/llm_pure/run_evaluation.py --prompt-style definition_based --small-batch
+python experiments/llm_pure/run_evaluation.py --prompt-style static_analysis_rules --small-batch
 
 # Small test with debugging
 python experiments/llm_pure/run_evaluation.py --client openai --small-batch --show-prompts
@@ -117,8 +130,12 @@ python experiments/llm_pure/run_evaluation.py --client openai --validate-only
 # Console display
 python experiments/llm_pure/run_evaluation.py --show-prompts --limit 1
 
-# Save to files (creates: results/llm_pure/prompts/prompt_modular_filename_timestamp.txt)
+# Save to files (creates: results/llm_pure/prompts/prompt_STYLE_filename_EXPERIMENT_ID.txt)
 python experiments/llm_pure/run_evaluation.py --save-prompts --small-batch
+
+# Compare prompt styles
+python experiments/llm_pure/run_evaluation.py --prompt-style definition_based --save-prompts --limit 1
+python experiments/llm_pure/run_evaluation.py --prompt-style static_analysis_rules --save-prompts --limit 1
 ```
 
 ## Client Comparison
@@ -141,10 +158,12 @@ python experiments/llm_pure/run_evaluation.py --save-prompts --small-batch
 
 **Output Files:**
 
-- `results/llm_pure/full_evaluation_*.json` - Complete reports
-- `results/llm_pure/batch_*.json` - Per-technology results
-- `results/llm_pure/raw_responses/` - Individual LLM responses
-- `results/llm_pure/prompts/` - Constructed prompts (when `--save-prompts` used)
+All files from the same experiment use unified timestamps for easy grouping:
+
+- `results/llm_pure/full_evaluation_EXPERIMENT_ID.json` - Complete reports
+- `results/llm_pure/batch_TECH_EXPERIMENT_ID.json` - Per-technology results
+- `results/llm_pure/raw_responses/FILENAME_EXPERIMENT_ID.json` - Individual LLM responses
+- `results/llm_pure/prompts/prompt_STYLE_FILENAME_EXPERIMENT_ID.txt` - Constructed prompts
 
 **Sample Output:**
 
@@ -153,7 +172,7 @@ python experiments/llm_pure/run_evaluation.py --save-prompts --small-batch
   "experiment_info": {
     "experiment_id": "20250803_143022",
     "model_name": "gpt-4o-mini",
-    "approach": "modular"
+    "prompt_style": "definition_based"
   },
   "results_by_technology": {
     "ansible": {
