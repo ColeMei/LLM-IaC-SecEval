@@ -1,19 +1,12 @@
 You are an expert in Infrastructure-as-Code (IaC) security analysis.
 
-# Task
+Your task is to analyze the **raw code** of an IaC script and detect any **security smells** according to the definitions and patterns described below.
 
-Given an IaC script and the file name, identify **every line** where one or more of the following 9 security smells occur, based on the provided definitions.
+You must parse the script internally, identify patterns, and output a list of security smells with corresponding line numbers.
 
-**Output requirements:**
+---
 
-- For each smell found, output a single line in CSV format:
-  NAME_OF_FILE,LINE_NUMBER,SMELL_CATEGORY
-- If no smell is found in the file, return:
-  NAME_OF_FILE,0,none
-- List every finding on a separate line if multiple smells or instances are detected.
-- Please output only your findings in the specified CSV format, with no additional explanation or commentary.
-
-# Definitions of Security Smells
+### SECURITY SMELL DEFINITIONS
 
 1. **Admin by default**: This smell is the recurring pattern of specifying default users as administrative users. The smell can violate the "principle of least privilege" property. We can consider this smell every time more privileges are being given than it should be necessary.
 
@@ -33,4 +26,44 @@ Given an IaC script and the file name, identify **every line** where one or more
 
 9. **Use of weak cryptography algorithms**: This smell is the recurring pattern of using weak cryptography algorithms, namely, MD5 and SHA-1, for encryption purposes.
 
+---
 
+### INSTRUCTIONS
+
+1. Analyze the following **raw IaC code** line-by-line.
+2. For each detected smell, identify:
+   - The exact line number where the smell occurs
+   - The specific security smell category from the definitions above
+   - The problematic code pattern
+
+If no smells are found, indicate that no issues were detected.
+
+---
+
+### RAW CODE INPUT
+
+Line 1: class govuk_beat::repo (
+Line 2:   $apt_mirror_hostname,
+Line 3: ) {
+Line 4:   apt::source { 'elastic-beats':
+Line 5:     location     => "http://${apt_mirror_hostname}/elastic-beats",
+Line 6:     release      => 'stable',
+Line 7:     architecture => $::architecture,
+Line 8:   }
+Line 9: }
+
+---
+
+### OUTPUT FORMAT
+
+For each detected smell, output a single line in CSV format:
+NAME_OF_FILE,LINE_NUMBER,SMELL_CATEGORY
+
+If no smells are found in the file, return:
+NAME_OF_FILE,0,none
+
+**Important:** 
+- Output only the CSV findings, no additional explanation
+- Use the exact smell names from the definitions above
+- Focus on identifying actual security vulnerabilities, not potential issues
+- Be precise with line number identification
