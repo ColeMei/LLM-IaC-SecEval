@@ -36,6 +36,9 @@ class PipelineConfig:
     # Evaluation settings
     agreement_threshold: int = 2  # Minimum agreement score to consider
     
+    # Prompt settings
+    default_prompt_style: str = "definition_based"  # or "static_analysis_rules"
+    
     def __post_init__(self):
         if self.iac_technologies is None:
             self.iac_technologies = ["ansible", "chef", "puppet"]

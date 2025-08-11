@@ -17,8 +17,9 @@ from .ollama_client import OllamaClient
 class LLMIaCPipeline:
     """Main pipeline for automated LLM evaluation on IaC security smells"""
     
-    def __init__(self, model_client: ModelClient = None):
-        self.prompt_builder = PromptBuilder()
+    def __init__(self, model_client: ModelClient = None, prompt_style: str = None):
+        self.prompt_style = prompt_style or config.default_prompt_style
+        self.prompt_builder = PromptBuilder(prompt_style=self.prompt_style)
         self.file_processor = FileProcessor()
         self.evaluator = Evaluator()
         self.model_client = model_client or OllamaClient()
@@ -69,7 +70,6 @@ class LLMIaCPipeline:
                        content: str, 
                        ground_truth: List[tuple],
                        iac_tech: str,
-                       use_modular: bool = True,
                        show_prompts: bool = False,
                        save_prompts: bool = False,
                        **generation_kwargs) -> Dict[str, Any]:
@@ -81,7 +81,6 @@ class LLMIaCPipeline:
             content: File content
             ground_truth: Ground truth annotations
             iac_tech: IaC technology
-            use_modular: Whether to use modular prompting (context separation)
             show_prompts: Whether to display constructed prompts in console
             save_prompts: Whether to save constructed prompts to files
             **generation_kwargs: Additional parameters for model generation
@@ -91,14 +90,14 @@ class LLMIaCPipeline:
         """
         start_time = time.time()
         
-        # Build prompt (modular mode assembles context + instructions, full mode uses embedded context)
-        prompt = self.prompt_builder.build_prompt(filename, content, include_context=use_modular)
+        # Build prompt using the configured style
+        prompt = self.prompt_builder.build_prompt(filename, content)
         
         # Display prompt if requested
         if show_prompts:
             print(f"\n" + "="*80)
             print(f"CONSTRUCTED PROMPT FOR: {filename}")
-            print(f"Mode: {'Modular' if use_modular else 'Full Context'}")
+            print(f"Style: {self.prompt_style}")
             print(f"Length: {len(prompt)} characters")
             print("="*80)
             print(prompt)
@@ -106,7 +105,7 @@ class LLMIaCPipeline:
         
         # Save prompt if requested
         if save_prompts:
-            self._save_prompt(prompt, filename, use_modular)
+            self._save_prompt(prompt, filename)
         
         # Generate response
         try:
@@ -137,7 +136,7 @@ class LLMIaCPipeline:
                     }
                 },
                 'processing_time': time.time() - start_time,
-                'prompt_type': 'modular' if use_modular else 'full',
+                'prompt_style': self.prompt_style,
                 'success': True
             }
             
@@ -155,7 +154,6 @@ class LLMIaCPipeline:
     def run_batch(self, 
                   iac_tech: str, 
                   limit: int = None,
-                  use_modular: bool = True,
                   save_individual: bool = True,
                   show_prompts: bool = False,
                   save_prompts: bool = False,
@@ -166,7 +164,6 @@ class LLMIaCPipeline:
         Args:
             iac_tech: IaC technology to process
             limit: Maximum number of files to process
-            use_modular: Whether to use modular prompting (context separation)
             save_individual: Whether to save individual results
             show_prompts: Whether to display constructed prompts in console
             save_prompts: Whether to save constructed prompts to files
@@ -177,7 +174,7 @@ class LLMIaCPipeline:
         """
         print(f"Starting batch processing for {iac_tech} (limit: {limit})")
         print(f"Model: {self.model_client.model_name}")
-        print(f"Modular prompting: {use_modular}")
+        print(f"Prompt style: {self.prompt_style}")
         
         batch_results = []
         all_predictions = []
@@ -192,7 +189,6 @@ class LLMIaCPipeline:
                 content=file_info['content'],
                 ground_truth=file_info['ground_truth'],
                 iac_tech=iac_tech,
-                use_modular=use_modular,
                 show_prompts=show_prompts,
                 save_prompts=save_prompts,
                 **generation_kwargs
@@ -230,7 +226,7 @@ class LLMIaCPipeline:
             'overall_error_analysis': overall_error_analysis,
             'individual_results': batch_results,
             'processing_metadata': {
-                'use_modular': use_modular,
+                'prompt_style': self.prompt_style,
                 'generation_params': generation_kwargs,
                 'timestamp': datetime.now().isoformat(),
                 'total_processing_time': sum(r.get('processing_time', 0) for r in batch_results)
@@ -242,7 +238,6 @@ class LLMIaCPipeline:
     def run_full_evaluation(self, 
                            iac_technologies: List[str] = None,
                            limit_per_tech: int = None,
-                           use_modular: bool = True,
                            show_prompts: bool = False,
                            save_prompts: bool = False,
                            **generation_kwargs) -> Dict[str, Any]:
@@ -252,7 +247,6 @@ class LLMIaCPipeline:
         Args:
             iac_technologies: List of IaC techs to evaluate (default: all)
             limit_per_tech: Limit files per technology
-            use_modular: Whether to use modular prompting (context separation)
             show_prompts: Whether to display constructed prompts in console
             save_prompts: Whether to save constructed prompts to files
             **generation_kwargs: Model generation parameters
@@ -277,7 +271,6 @@ class LLMIaCPipeline:
                 batch_result = self.run_batch(
                     iac_tech=iac_tech,
                     limit=limit_per_tech,
-                    use_modular=use_modular,
                     show_prompts=show_prompts,
                     save_prompts=save_prompts,
                     **generation_kwargs
@@ -299,11 +292,10 @@ class LLMIaCPipeline:
         
         return evaluation_report
     
-    def _save_prompt(self, prompt: str, filename: str, use_modular: bool):
+    def _save_prompt(self, prompt: str, filename: str):
         """Save constructed prompt to file"""
         timestamp = datetime.now().strftime("%H%M%S")
-        mode = "modular" if use_modular else "full"
-        prompt_filename = f"prompt_{mode}_{filename}_{timestamp}.txt"
+        prompt_filename = f"prompt_{self.prompt_style}_{filename}_{timestamp}.txt"
         output_path = config.results_dir / "prompts" / prompt_filename
         
         # Ensure prompts directory exists
@@ -312,7 +304,7 @@ class LLMIaCPipeline:
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(f"# CONSTRUCTED PROMPT\n")
             f.write(f"# File: {filename}\n")
-            f.write(f"# Mode: {mode}\n")
+            f.write(f"# Style: {self.prompt_style}\n")
             f.write(f"# Timestamp: {datetime.now().isoformat()}\n")
             f.write(f"# Length: {len(prompt)} characters\n")
             f.write(f"# {'='*60}\n\n")

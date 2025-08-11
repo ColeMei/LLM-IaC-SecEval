@@ -33,8 +33,9 @@ def create_client(client_type: str, **kwargs):
     else:
         raise ValueError(f"Unsupported client type: {client_type}. Supported types: ollama, openai")
 
-# Available client types
+# Available client types and prompt styles
 SUPPORTED_CLIENTS = ['ollama', 'openai']
+SUPPORTED_PROMPT_STYLES = ['definition_based', 'static_analysis_rules']
 
 __all__ = [
     'ModelClient', 'ModelResponse',
