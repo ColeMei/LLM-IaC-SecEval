@@ -197,19 +197,20 @@ class Evaluator:
         
         return report
     
-    def save_evaluation(self, report: Dict[str, Any], output_path: str = None) -> str:
+    def save_evaluation(self, report: Dict[str, Any], output_path: str = None, experiment_id: str = None) -> str:
         """
         Save evaluation report to file
         
         Args:
             report: Evaluation report dictionary
             output_path: Optional custom output path
+            experiment_id: Experiment ID for consistent naming
             
         Returns:
             Path to saved file
         """
         if output_path is None:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = experiment_id or datetime.now().strftime("%Y%m%d_%H%M%S")
             model_name = report['experiment_info']['model_name'].replace(':', '_')
             iac_tech = report['experiment_info']['iac_technology']
             filename = f"eval_{model_name}_{iac_tech}_{timestamp}.json"

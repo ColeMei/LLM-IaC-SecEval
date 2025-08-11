@@ -294,8 +294,7 @@ class LLMIaCPipeline:
     
     def _save_prompt(self, prompt: str, filename: str):
         """Save constructed prompt to file"""
-        timestamp = datetime.now().strftime("%H%M%S")
-        prompt_filename = f"prompt_{self.prompt_style}_{filename}_{timestamp}.txt"
+        prompt_filename = f"prompt_{self.prompt_style}_{filename}_{self.experiment_id}.txt"
         output_path = config.results_dir / "prompts" / prompt_filename
         
         # Ensure prompts directory exists
@@ -313,8 +312,7 @@ class LLMIaCPipeline:
     def _save_individual_result(self, result: Dict[str, Any]):
         """Save individual file result"""
         if config.save_raw_responses:
-            timestamp = datetime.now().strftime("%H%M%S")
-            filename = f"{result['filename']}_{timestamp}.json"
+            filename = f"{result['filename']}_{self.experiment_id}.json"
             output_path = config.results_dir / "raw_responses" / filename
             
             with open(output_path, 'w') as f:
