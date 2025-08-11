@@ -103,7 +103,7 @@ def test_single_file_processing(client_type, client_available):
                 content=file_info['content'],
                 ground_truth=file_info['ground_truth'],
                 iac_tech='ansible',
-                use_modular=True,
+
                 show_prompts=False,
                 save_prompts=False,
                 max_tokens=256  # Shorter for testing

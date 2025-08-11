@@ -33,8 +33,9 @@ def main():
                        help="Specific IaC technology to evaluate (default: all)")
     parser.add_argument("--limit", type=int, 
                        help="Limit number of files per technology (default: all)")
-    parser.add_argument("--no-modular", action="store_true",
-                       help="Disable modular prompting (use full context)")
+    parser.add_argument("--prompt-style", choices=["definition_based", "static_analysis_rules"], 
+                       default="definition_based",
+                       help="Prompt style to use (default: definition_based)")
     
     # Generation parameters
     parser.add_argument("--temperature", type=float, default=0.1,
@@ -83,7 +84,7 @@ def main():
         return 1
     
     # Initialize pipeline
-    pipeline = LLMIaCPipeline(model_client=client)
+    pipeline = LLMIaCPipeline(model_client=client, prompt_style=args.prompt_style)
     
     print("="*60)
     print("LLM-IaC-SecEval Automated Pipeline")
@@ -124,7 +125,7 @@ def main():
     # Determine execution parameters
     iac_technologies = [args.iac_tech] if args.iac_tech else config.iac_technologies
     limit = 5 if args.small_batch else args.limit
-    use_modular = not args.no_modular
+    # Prompt style is now handled by the pipeline
     
     generation_kwargs = {
         'temperature': args.temperature,
@@ -135,7 +136,7 @@ def main():
     print(f"   Technologies: {iac_technologies}")
     print(f"   Client: {args.client}")
     print(f"   Model: {model_name}")
-    print(f"   Modular prompting: {use_modular}")
+    print(f"   Prompt style: {args.prompt_style}")
     print(f"   Limit per tech: {limit or 'all'}")
     print(f"   Generation params: {generation_kwargs}")
     
@@ -144,7 +145,7 @@ def main():
         results = pipeline.run_full_evaluation(
             iac_technologies=iac_technologies,
             limit_per_tech=limit,
-            use_modular=use_modular,
+
             show_prompts=args.show_prompts,
             save_prompts=args.save_prompts,
             **generation_kwargs
