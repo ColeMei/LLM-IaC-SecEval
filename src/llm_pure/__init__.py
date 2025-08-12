@@ -41,5 +41,5 @@ __all__ = [
     'ModelClient', 'ModelResponse',
     'OllamaClient', 'OpenAIClient',
     'config', 'LLMIaCPipeline', 'Evaluator',
-    'create_client', 'SUPPORTED_CLIENTS'
+    'create_client', 'SUPPORTED_CLIENTS', 'SUPPORTED_PROMPT_STYLES'
 ]

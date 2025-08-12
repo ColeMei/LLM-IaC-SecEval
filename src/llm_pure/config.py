@@ -33,8 +33,8 @@ class PipelineConfig:
     output_format: str = "csv"  # csv, json
     save_raw_responses: bool = True
     
-    # Evaluation settings
-    agreement_threshold: int = 1  # Include all entries (no minimum agreement filtering)
+    # Evaluation settings  
+    agreement_threshold: int = 1  # For metadata/reporting only (no actual filtering applied)
     
     # Prompt settings
     default_prompt_style: str = "definition_based"  # or "static_analysis_rules"

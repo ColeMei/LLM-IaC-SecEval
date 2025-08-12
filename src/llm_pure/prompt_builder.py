@@ -8,11 +8,10 @@ from .config import config
 class PromptBuilder:
     """Builds prompts with two distinct styles: definition_based and static_analysis_rules"""
     
-    PROMPT_STYLES = ['definition_based', 'static_analysis_rules']
-    
     def __init__(self, prompt_style: str = 'definition_based'):
-        if prompt_style not in self.PROMPT_STYLES:
-            raise ValueError(f"Unsupported prompt style: {prompt_style}. Supported styles: {self.PROMPT_STYLES}")
+        from . import SUPPORTED_PROMPT_STYLES
+        if prompt_style not in SUPPORTED_PROMPT_STYLES:
+            raise ValueError(f"Unsupported prompt style: {prompt_style}. Supported styles: {SUPPORTED_PROMPT_STYLES}")
         
         self.prompt_style = prompt_style
         self.template = self._load_template()

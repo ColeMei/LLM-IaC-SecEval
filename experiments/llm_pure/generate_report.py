@@ -28,12 +28,12 @@ class ExperimentReportGenerator:
             "Admin by default",
             "Empty password", 
             "Hard-coded secret",
-            "Missing default in case statement",
-            "No integrity check",
+            "Unrestricted IP Address",
             "Suspicious comment",
-            "Unrestricted IP address",
             "Use of HTTP without SSL/TLS",
-            "Use of weak cryptography algorithms"
+            "No integrity check",
+            "Use of weak cryptography algorithms",
+            "Missing Default in Case Statement"
         ]
     
     def find_latest_experiments(self, iac_tech: str = "puppet", limit: int = 5) -> List[str]:
@@ -181,24 +181,38 @@ class ExperimentReportGenerator:
         
         return pd.DataFrame(detailed_data)
     
+    def load_glitch_baseline_data(self, iac_tech: str) -> Dict[str, Dict]:
+        """Load real GLITCH baseline data from analysis files"""
+        try:
+            # Try to find the latest GLITCH analysis file
+            glitch_files = list(self.results_dir.glob("glitch_analysis_*.json"))
+            if not glitch_files:
+                print(f"⚠️  No GLITCH analysis files found. Run analyze_glitch_data.py first!")
+                return {}
+            
+            # Use the latest file
+            latest_file = max(glitch_files, key=lambda x: x.stat().st_mtime)
+            
+            import json
+            with open(latest_file, 'r') as f:
+                glitch_data = json.load(f)
+            
+            return glitch_data.get(iac_tech, {})
+            
+        except Exception as e:
+            print(f"❌ Failed to load GLITCH data: {e}")
+            return {}
+
     def create_glitch_comparison_table(self, experiments: List[Dict[str, Any]]) -> pd.DataFrame:
         """Create table in exact GLITCH paper format with TP/FP/Occurrence for easy comparison"""
         
-        # GLITCH baseline data from the paper (for reference)
-        glitch_data = {
-            'Admin by default': {'precision': 0.81, 'recall': 0.93},
-            'Empty password': {'precision': 1.0, 'recall': 1.0},
-            'Hard-coded secret': {'precision': 0.14, 'recall': 0.82},
-            'Unrestricted IP address': {'precision': 1.0, 'recall': 1.0},  # Invalid IP address binding
-            'Suspicious comment': {'precision': 0.39, 'recall': 1.0},
-            'Use of HTTP without SSL/TLS': {'precision': 0.45, 'recall': 1.0},
-            'No integrity check': {'precision': 0.0, 'recall': 0.0},  # N/D in paper
-            'Use of weak cryptography algorithms': {'precision': 0.57, 'recall': 1.0},
-            'Missing default in case statement': {'precision': 0.83, 'recall': 1.0}
-        }
-        
         # Get IaC technology from first experiment
         iac_tech = experiments[0]['iac_technology'] if experiments else 'unknown'
+        
+        # Load real GLITCH baseline data for this technology
+        glitch_baseline = self.load_glitch_baseline_data(iac_tech)
+        if not glitch_baseline:
+            print(f"⚠️  No GLITCH baseline data for {iac_tech}. Using placeholder values.")
         
         # Create table structure
         table_data = []
@@ -226,28 +240,26 @@ class ExperimentReportGenerator:
                 if metrics.get('support', 0) > 0:
                     occurrence = metrics.get('support', 0)
             
-            # Calculate GLITCH TP/FP based on precision/recall and our ground truth
-            glitch_metrics = glitch_data.get(smell, {'precision': 0.0, 'recall': 0.0})
-            if occurrence > 0 and glitch_metrics['recall'] > 0:
-                glitch_tp = int(glitch_metrics['recall'] * occurrence)
-                # Estimate GLITCH total predictions from precision: TP / precision = total_predictions
-                if glitch_metrics['precision'] > 0:
-                    glitch_total_pred = int(glitch_tp / glitch_metrics['precision'])
-                    glitch_fp = glitch_total_pred - glitch_tp
-                else:
-                    glitch_fp = 0  # If precision is 0, assume many false positives
-            else:
-                glitch_tp = 0
-                glitch_fp = 0
+            # Get real GLITCH metrics for this smell and technology
+            glitch_smell_data = glitch_baseline.get(smell, {})
+            glitch_occurrence = glitch_smell_data.get('ground_truth_occurrence', 0)
+            glitch_precision = glitch_smell_data.get('glitch_precision', 0.0)
+            glitch_recall = glitch_smell_data.get('glitch_recall', 0.0)
+            glitch_tp = glitch_smell_data.get('glitch_tp', 0)
+            glitch_fp = glitch_smell_data.get('glitch_fp', 0)
+            
+            # Use GLITCH occurrence if our experiment doesn't have this smell
+            if occurrence == 0:
+                occurrence = glitch_occurrence
             
             row = {
                 'IaC_Technology': iac_tech,
                 'Security_Smell': smell,
                 'Ground_Truth_Occurrence': occurrence,
                 
-                # GLITCH metrics
-                'GLITCH_Precision': f"{glitch_metrics['precision']:.3f}",
-                'GLITCH_Recall': f"{glitch_metrics['recall']:.3f}",
+                # Real GLITCH metrics from baseline data
+                'GLITCH_Precision': f"{glitch_precision:.3f}",
+                'GLITCH_Recall': f"{glitch_recall:.3f}",
                 'GLITCH_TP': glitch_tp,
                 'GLITCH_FP': glitch_fp,
             }
@@ -279,7 +291,7 @@ class ExperimentReportGenerator:
             'GLITCH_FP': sum(row['GLITCH_FP'] for row in table_data),
         }
         
-        # Add overall precision/recall for GLITCH
+        # Calculate overall GLITCH precision/recall from real totals
         total_glitch_tp = total_row['GLITCH_TP'] 
         total_glitch_fp = total_row['GLITCH_FP']
         total_occurrence = total_row['Ground_Truth_Occurrence']
