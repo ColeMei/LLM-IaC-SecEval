@@ -34,7 +34,7 @@ class PipelineConfig:
     save_raw_responses: bool = True
     
     # Evaluation settings
-    agreement_threshold: int = 2  # Minimum agreement score to consider
+    agreement_threshold: int = 1  # Include all entries (no minimum agreement filtering)
     
     # Prompt settings
     default_prompt_style: str = "definition_based"  # or "static_analysis_rules"

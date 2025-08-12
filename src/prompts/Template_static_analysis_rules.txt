@@ -95,8 +95,8 @@ NAME_OF_FILE,0,none
 **Important:** 
 - Output only the CSV findings, no additional explanation
 - Use the exact smell names from the rules above
-- Map "Invalid IP address binding" to "Unrestricted IP address" 
+- Map "Invalid IP address binding" to "Unrestricted IP Address" 
 - Map "Use of HTTP without TLS" to "Use of HTTP without SSL/TLS"
 - Map "Use of weak crypto algorithm" to "Use of weak cryptography algorithms"
-- Map "Missing default case statement" to "Missing default in case statement"
+- Map "Missing default case statement" to "Missing Default in Case Statement"
 - Apply keyword heuristics systematically for pattern matching

@@ -88,8 +88,8 @@ class FileProcessor:
         
         results = []
         for _, row in file_gt.iterrows():
-            # Filter by agreement threshold if needed
-            if row['AGREEMENT'] >= config.agreement_threshold:
+            # Include all entries (removed agreement threshold filter)
+            if row['CATEGORY'] != 'none':  # Only include actual smells
                 results.append((filename, int(row['LINE']), row['CATEGORY']))
                 
         # If no results, the file has no smells
@@ -145,9 +145,9 @@ class FileProcessor:
                 files = self.get_iac_files(iac_tech)
                 ground_truth_df = self.load_ground_truth(iac_tech)
                 
-                # Count smells by category
+                # Count smells by category (removed agreement threshold filter)
                 smell_counts = ground_truth_df[
-                    ground_truth_df['AGREEMENT'] >= config.agreement_threshold
+                    ground_truth_df['CATEGORY'] != 'none'
                 ]['CATEGORY'].value_counts().to_dict()
                 
                 stats[iac_tech] = {

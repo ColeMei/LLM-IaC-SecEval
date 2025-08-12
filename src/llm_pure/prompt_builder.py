@@ -163,10 +163,10 @@ class PromptBuilder:
         """Normalize category names to match expected format"""
         # Mapping for static analysis rules style to standard names
         category_mappings = {
-            "Invalid IP address binding": "Unrestricted IP address",
+            "Invalid IP address binding": "Unrestricted IP Address",
             "Use of HTTP without TLS": "Use of HTTP without SSL/TLS",
             "Use of weak crypto algorithm": "Use of weak cryptography algorithms",
-            "Missing default case statement": "Missing default in case statement"
+            "Missing default case statement": "Missing Default in Case Statement"
         }
         
         return category_mappings.get(category, category)

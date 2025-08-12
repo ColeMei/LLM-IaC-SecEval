@@ -16,12 +16,12 @@ class Evaluator:
             "Admin by default",
             "Empty password", 
             "Hard-coded secret",
-            "Missing default in case statement",
-            "No integrity check",
+            "Unrestricted IP Address",
             "Suspicious comment",
-            "Unrestricted IP address",
             "Use of HTTP without SSL/TLS",
-            "Use of weak cryptography algorithms"
+            "No integrity check",
+            "Use of weak cryptography algorithms",
+            "Missing Default in Case Statement"
         ]
     
     def calculate_metrics(self, predictions: List[Tuple], ground_truth: List[Tuple]) -> Dict[str, Any]:
