@@ -156,6 +156,14 @@ python experiments/llm_pure/run_evaluation.py --prompt-style static_analysis_rul
 - **Recall**: Correct predictions / Total actual smells
 - **F1**: Harmonic mean of precision and recall
 
+**GLITCH Baseline Integration:**
+
+The pipeline uses accurate GLITCH baseline data for comparison:
+
+- **Ansible**: `GLITCH-ansible-oracle_fixed_improved.csv` (manually verified line numbers)
+- **Chef**: `GLITCH-chef-oracle.csv` (original GLITCH output)
+- **Puppet**: `GLITCH-puppet-oracle.csv` (original GLITCH output)
+
 **Output Files:**
 
 All files from the same experiment use unified timestamps for easy grouping:
