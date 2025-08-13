@@ -25,6 +25,7 @@ src/llm_pure/
 ├── model_client.py     # Abstract model interface
 ├── ollama_client.py    # Ollama implementation
 ├── openai_client.py    # OpenAI implementation
+├── claude_client.py    # Claude implementation
 ├── file_processor.py   # File and ground truth handling
 └── evaluator.py        # Metrics calculation
 
@@ -35,6 +36,7 @@ src/prompts/
 experiments/llm_pure/
 ├── run_evaluation.py    # Main execution script
 ├── validate_pipeline.py # Pipeline validation
+├── generate_report.py   # Excel report generator
 └── cleanup_results.py   # Results management
 ```
 
@@ -46,10 +48,11 @@ experiments/llm_pure/
 
 | Argument           | Type    | Default            | Description                                               |
 | ------------------ | ------- | ------------------ | --------------------------------------------------------- |
-| `--client`         | Choice  | `ollama`           | LLM client: `ollama`, `openai`                            |
+| `--client`         | Choice  | `ollama`           | LLM client: `ollama`, `openai`, `claude`                  |
 | `--model`          | String  | (varies)           | Model name (default varies by client)                     |
 | `--ollama-url`     | String  | `localhost:11434`  | Ollama server URL                                         |
 | `--openai-api-key` | String  | (env var)          | OpenAI API key                                            |
+| `--claude-api-key` | String  | (env var)          | Claude API key                                            |
 | `--iac-tech`       | Choice  | All                | Technology: `ansible`, `chef`, `puppet`                   |
 | `--limit`          | Integer | No limit           | Max files per technology                                  |
 | `--prompt-style`   | Choice  | `definition_based` | Prompt style: `definition_based`, `static_analysis_rules` |
@@ -69,6 +72,10 @@ python experiments/llm_pure/run_evaluation.py
 export OPENAI_API_KEY="your-key"
 python experiments/llm_pure/run_evaluation.py --client openai
 
+# Claude Sonnet
+export ANTHROPIC_API_KEY="your-key"
+python experiments/llm_pure/run_evaluation.py --client claude
+
 # Custom model and parameters
 python experiments/llm_pure/run_evaluation.py --client openai --model gpt-4 --temperature 0.05
 
@@ -82,6 +89,7 @@ python experiments/llm_pure/run_evaluation.py --client openai --small-batch --sh
 # Model comparison
 python experiments/llm_pure/run_evaluation.py --client ollama --model codellama:7b --limit 5
 python experiments/llm_pure/run_evaluation.py --client openai --model gpt-4o-mini --limit 5
+python experiments/llm_pure/run_evaluation.py --client claude --model claude-3-5-haiku-20241022 --limit 5
 
 # Technology-specific evaluation
 python experiments/llm_pure/run_evaluation.py --client openai --iac-tech ansible --limit 20
@@ -89,10 +97,11 @@ python experiments/llm_pure/run_evaluation.py --client openai --iac-tech ansible
 
 ## Multi-Client Setup
 
-| Client     | Type  | Setup Commands                                 | Default Model  |
-| ---------- | ----- | ---------------------------------------------- | -------------- |
-| **Ollama** | Local | `ollama serve` <br> `ollama pull codellama:7b` | `codellama:7b` |
-| **OpenAI** | Cloud | `export OPENAI_API_KEY="your-key"`             | `gpt-4o-mini`  |
+| Client     | Type  | Setup Commands                                 | Default Model                |
+| ---------- | ----- | ---------------------------------------------- | ---------------------------- |
+| **Ollama** | Local | `ollama serve` <br> `ollama pull codellama:7b` | `codellama:7b`               |
+| **OpenAI** | Cloud | `export OPENAI_API_KEY="your-key"`             | `gpt-4o-mini`                |
+| **Claude** | Cloud | `export ANTHROPIC_API_KEY="your-key"`          | `claude-3-5-sonnet-20241022` |
 
 ## Validation & Testing
 
@@ -112,8 +121,10 @@ VALIDATION SUMMARY
   OLLAMA end-to-end: ✓
   OPENAI connection: ✗
   OPENAI end-to-end: ✗
+  CLAUDE connection: ✓
+  CLAUDE end-to-end: ✓
 
-🎉 Pipeline validated with OLLAMA client(s)!
+🎉 Pipeline validated with OLLAMA, CLAUDE client(s)!
 ```
 
 ### Individual Client Testing
@@ -122,6 +133,7 @@ VALIDATION SUMMARY
 # Test specific clients only
 python experiments/llm_pure/run_evaluation.py --client ollama --validate-only
 python experiments/llm_pure/run_evaluation.py --client openai --validate-only
+python experiments/llm_pure/run_evaluation.py --client claude --validate-only
 ```
 
 ## Prompt Debugging
@@ -138,15 +150,50 @@ python experiments/llm_pure/run_evaluation.py --prompt-style definition_based --
 python experiments/llm_pure/run_evaluation.py --prompt-style static_analysis_rules --save-prompts --limit 1
 ```
 
+## Report Generation
+
+### `experiments/llm_pure/generate_report.py`
+
+Automatically generates Excel comparison reports after experiments are complete. Creates comprehensive analysis with GLITCH baseline comparisons.
+
+**Key Features:**
+
+- Multi-sheet Excel reports with formatted tables
+- GLITCH baseline integration for academic comparison
+- Per-smell metrics breakdown and overall statistics
+- Automatic experiment discovery and comparison
+
+**Usage Examples:**
+
+```bash
+# Compare latest 2 experiments for puppet
+python experiments/llm_pure/generate_report.py --iac-tech puppet --latest 2
+
+# Compare specific experiments
+python experiments/llm_pure/generate_report.py --iac-tech ansible \
+  --experiment-ids 20250103_143022 20250103_151045
+
+# Generate report with custom output location
+python experiments/llm_pure/generate_report.py --iac-tech chef \
+  --latest 3 --output reports/chef_comparison.xlsx
+```
+
+**Generated Sheets:**
+
+- **Summary**: Experiment overview and overall metrics
+- **GLITCH_Comparison**: Academic format with baseline comparison
+- **Detailed_Comparison**: Per-smell precision/recall/F1 breakdown
+- **Full_Metrics**: Complete statistics with TP/FP/FN counts
+
 ## Client Comparison
 
-| Feature      | Ollama                      | OpenAI               |
-| ------------ | --------------------------- | -------------------- |
-| **Cost**     | Free (local compute)        | ~$0.002/1K tokens    |
-| **Speed**    | Medium                      | Fast                 |
-| **Privacy**  | Complete (local)            | Cloud-based          |
-| **Setup**    | Requires local installation | API key only         |
-| **Use Case** | Development, privacy        | Production, accuracy |
+| Feature      | Ollama                      | OpenAI               | Claude                |
+| ------------ | --------------------------- | -------------------- | --------------------- |
+| **Cost**     | Free (local compute)        | ~$0.002/1K tokens    | ~$0.003/1K tokens     |
+| **Speed**    | Medium                      | Fast                 | Fast                  |
+| **Privacy**  | Complete (local)            | Cloud-based          | Cloud-based           |
+| **Setup**    | Requires local installation | API key only         | API key only          |
+| **Use Case** | Development, privacy        | Production, accuracy | Production, reasoning |
 
 ## Results & Metrics
 
@@ -193,8 +240,9 @@ All files from the same experiment use unified timestamps for easy grouping:
 
 ## Troubleshooting
 
-| Issue                 | Solution                                             |
-| --------------------- | ---------------------------------------------------- |
-| **OpenAI Auth Error** | Check `echo $OPENAI_API_KEY` and verify key validity |
-| **Ollama Connection** | Run `ollama serve` and `ollama pull codellama:7b`    |
-| **Model Not Found**   | Use specific model names (e.g., `--model gpt-4`)     |
+| Issue                 | Solution                                                |
+| --------------------- | ------------------------------------------------------- |
+| **OpenAI Auth Error** | Check `echo $OPENAI_API_KEY` and verify key validity    |
+| **Claude Auth Error** | Check `echo $ANTHROPIC_API_KEY` and verify key validity |
+| **Ollama Connection** | Run `ollama serve` and `ollama pull codellama:7b`       |
+| **Model Not Found**   | Use specific model names (e.g., `--model gpt-4`)        |
