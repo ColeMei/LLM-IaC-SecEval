@@ -298,7 +298,7 @@ class LLMIaCPipeline:
         output_path = config.results_dir / "prompts" / prompt_filename
         
         # Ensure prompts directory exists
-        output_path.parent.mkdir(exist_ok=True)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(f"# CONSTRUCTED PROMPT\n")

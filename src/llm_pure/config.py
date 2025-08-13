@@ -51,10 +51,10 @@ class PipelineConfig:
             }
         
         # Ensure directories exist
-        self.results_dir.mkdir(exist_ok=True)
-        (self.results_dir / "raw_responses").mkdir(exist_ok=True)
-        (self.results_dir / "evaluations").mkdir(exist_ok=True)
-        (self.results_dir / "prompts").mkdir(exist_ok=True)
+        self.results_dir.mkdir(parents=True, exist_ok=True)
+        (self.results_dir / "raw_responses").mkdir(parents=True, exist_ok=True)
+        (self.results_dir / "evaluations").mkdir(parents=True, exist_ok=True)
+        (self.results_dir / "prompts").mkdir(parents=True, exist_ok=True)
 
 # Global config instance
 config = PipelineConfig()

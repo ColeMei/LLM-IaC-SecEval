@@ -23,7 +23,7 @@ class ExperimentReportGenerator:
     def __init__(self):
         self.results_dir = config.results_dir
         self.reports_dir = self.results_dir / "reports"
-        self.reports_dir.mkdir(exist_ok=True)
+        self.reports_dir.mkdir(parents=True, exist_ok=True)
         self.security_smells = [
             "Admin by default",
             "Empty password", 

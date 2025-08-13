@@ -155,17 +155,17 @@ class ResultsCleanup:
             print("❌ No experiments selected")
             return False
 
-        self.archive_dir.mkdir(exist_ok=True)
+        self.archive_dir.mkdir(parents=True, exist_ok=True)
 
         archived_count = 0
         for exp_id in experiment_ids:
             files = analysis['current_experiments'].get(exp_id, [])
             if files:
                 exp_archive_dir = self.archive_dir / exp_id
-                exp_archive_dir.mkdir(exist_ok=True)
-                (exp_archive_dir / "raw_responses").mkdir(exist_ok=True)
-                (exp_archive_dir / "prompts").mkdir(exist_ok=True)
-                (exp_archive_dir / "evaluations").mkdir(exist_ok=True)
+                exp_archive_dir.mkdir(parents=True, exist_ok=True)
+                (exp_archive_dir / "raw_responses").mkdir(parents=True, exist_ok=True)
+                (exp_archive_dir / "prompts").mkdir(parents=True, exist_ok=True)
+                (exp_archive_dir / "evaluations").mkdir(parents=True, exist_ok=True)
                 for file_path in files:
                     try:
                         if 'raw_responses' in str(file_path):
