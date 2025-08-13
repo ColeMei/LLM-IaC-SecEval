@@ -28,6 +28,10 @@ class PipelineConfig:
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     openai_default_model: str = "gpt-4o-mini"
     
+    # Claude configurations
+    claude_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
+    claude_default_model: str = "claude-3-5-sonnet-20241022"
+    
     # Output settings
     batch_size: int = 10
     output_format: str = "csv"  # csv, json
