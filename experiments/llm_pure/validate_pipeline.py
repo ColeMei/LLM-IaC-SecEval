@@ -78,6 +78,8 @@ def test_client_connection(client_type):
         print(f"  Error creating {client_type} client: {e}")
         if client_type == 'openai' and 'API key' in str(e):
             print("    💡 Set OPENAI_API_KEY environment variable")
+        elif client_type == 'claude' and 'API key' in str(e):
+            print("    💡 Set ANTHROPIC_API_KEY environment variable")
         return False
 
 def test_single_file_processing(client_type, client_available):
@@ -184,6 +186,11 @@ def main():
             print("\n    OpenAI setup:")
             print("      1. Get API key: https://platform.openai.com/api-keys")
             print("      2. Set environment: export OPENAI_API_KEY='your-key'")
+        
+        if not client_results.get('claude', False):
+            print("\n    Claude setup:")
+            print("      1. Get API key: https://console.anthropic.com/")
+            print("      2. Set environment: export ANTHROPIC_API_KEY='your-key'")
         
         return 1
 

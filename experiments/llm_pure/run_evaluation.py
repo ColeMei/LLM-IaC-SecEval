@@ -27,6 +27,8 @@ def main():
                        help="Ollama server URL (default: http://localhost:11434)")
     parser.add_argument("--openai-api-key", 
                        help="OpenAI API key (or set OPENAI_API_KEY env var)")
+    parser.add_argument("--claude-api-key", 
+                       help="Claude API key (or set ANTHROPIC_API_KEY env var)")
     
     # Execution options
     parser.add_argument("--iac-tech", choices=["ansible", "chef", "puppet"], 
@@ -60,7 +62,8 @@ def main():
     # Determine default model for each client type
     default_models = {
         'ollama': 'codellama:7b',
-        'openai': 'gpt-4o-mini'
+        'openai': 'gpt-4o-mini',
+        'claude': 'claude-3-5-sonnet-20241022'
     }
     
     model_name = args.model or default_models[args.client]
@@ -73,6 +76,9 @@ def main():
     elif args.client == 'openai':
         if args.openai_api_key:
             client_kwargs['api_key'] = args.openai_api_key
+    elif args.client == 'claude':
+        if args.claude_api_key:
+            client_kwargs['api_key'] = args.claude_api_key
     
     # Initialize model client using factory
     try:
@@ -81,6 +87,8 @@ def main():
         print(f"❌ Failed to create {args.client} client: {e}")
         if args.client == 'openai' and 'API key' in str(e):
             print("   💡 Set OPENAI_API_KEY environment variable or use --openai-api-key")
+        elif args.client == 'claude' and 'API key' in str(e):
+            print("   💡 Set ANTHROPIC_API_KEY environment variable or use --claude-api-key")
         return 1
     
     # Initialize pipeline
@@ -116,6 +124,10 @@ def main():
         elif args.client == 'openai':
             print("   💡 Check your OpenAI API key and internet connection")
             print("   💡 Verify the model name is correct")
+        elif args.client == 'claude':
+            print("   💡 Check your Anthropic API key and internet connection")
+            print("   💡 Verify the model name is correct")
+            print("   💡 Ensure you have access to the Claude model")
         return 1
     
     if args.validate_only:
