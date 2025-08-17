@@ -12,7 +12,8 @@ The hybrid approach leverages the strengths of both:
 
 from .data_extractor import GLITCHDetectionExtractor
 from .context_extractor import CodeContextExtractor
-from .prompt_templates import SecuritySmellPrompts, SecuritySmell, PromptStyle
+from .prompt_templates import SecuritySmellPrompts, SecuritySmell, PromptStyle, PromptVersion
+from .prompt_loader import ExternalPromptLoader
 from .llm_client import (
     GPT4OMiniClient,
     LLMDecision,
@@ -29,6 +30,8 @@ __all__ = [
     'SecuritySmellPrompts',
     'SecuritySmell',
     'PromptStyle',
+    'PromptVersion',
+    'ExternalPromptLoader',
     'GPT4OMiniClient',
     'LLMDecision',
     'LLMResponse',

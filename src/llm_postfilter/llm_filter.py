@@ -21,7 +21,7 @@ from datetime import datetime
 try:
     # Relative imports (when used as package)
     from .context_extractor import CodeContextExtractor
-    from .prompt_templates import SecuritySmellPrompts, SecuritySmell, PromptStyle
+    from .prompt_templates import SecuritySmellPrompts, SecuritySmell, PromptStyle, PromptVersion
     from .llm_client import (
         create_llm_client,
         Provider,
@@ -32,7 +32,7 @@ try:
 except ImportError:
     # Absolute imports (when run directly)
     from context_extractor import CodeContextExtractor
-    from prompt_templates import SecuritySmellPrompts, SecuritySmell, PromptStyle
+    from prompt_templates import SecuritySmellPrompts, SecuritySmell, PromptStyle, PromptVersion
     from llm_client import (
         create_llm_client,
         Provider,
@@ -56,6 +56,7 @@ class GLITCHLLMFilter:
         base_url: Optional[str] = None,
         context_lines: int = 3,
         prompt_style: str = PromptStyle.DEFINITION_BASED.value,
+        prompt_version: str = PromptVersion.CURRENT.value,
     ):
         """Initialize the LLM filter with all required components."""
         self.project_root = Path(project_root)
@@ -74,13 +75,19 @@ class GLITCHLLMFilter:
         # Allow 0 for target-line-only; clamp negatives to 0
         self.context_lines = max(0, int(context_lines))
         
-        # Prompt style configuration
+        # Prompt style and version configuration
         self.prompt_style = SecuritySmellPrompts.get_prompt_style_from_string(prompt_style)
         if not self.prompt_style:
             logger.warning(f"Unknown prompt style '{prompt_style}', defaulting to definition_based")
             self.prompt_style = PromptStyle.DEFINITION_BASED
         
-        logger.info(f"Initialized GLITCH+LLM filter pipeline with {self.prompt_style.value} prompt style")
+        # Validate prompt version
+        if prompt_version not in [v.value for v in PromptVersion]:
+            logger.warning(f"Unknown prompt version '{prompt_version}', defaulting to current")
+            prompt_version = PromptVersion.CURRENT.value
+        self.prompt_version = prompt_version
+        
+        logger.info(f"Initialized GLITCH+LLM filter pipeline with {self.prompt_style.value} prompt style, {self.prompt_version} version")
     
     def load_detections(self, detection_file: Path) -> pd.DataFrame:
         """Load GLITCH detections from CSV file."""
@@ -123,11 +130,12 @@ class GLITCHLLMFilter:
                 logger.warning(f"Unknown smell category: {detection['smell_category']}")
                 continue
             
-            # Generate prompt using the configured style
+            # Generate prompt using the configured style and version
             prompt = SecuritySmellPrompts.create_prompt(
                 smell, 
                 detection['context_snippet'],
-                style=self.prompt_style
+                style=self.prompt_style,
+                prompt_version=self.prompt_version
             )
             prompts.append((idx, detection['detection_id'], prompt))
         
