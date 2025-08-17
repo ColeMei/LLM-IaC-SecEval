@@ -258,7 +258,7 @@ class GLITCHLLMFilter:
         summary = {
             "timestamp": datetime.now().isoformat(),
             "model": self.llm_client.model,
-            "prompt_style": self.prompt_style.value,
+            "prompt_style": self.prompt_template,
             "context_lines": self.context_lines,
             "filtering_results": {
                 "total_detections": int(total_detections),
@@ -300,7 +300,7 @@ class GLITCHLLMFilter:
         prompt_response_log = {
             "timestamp": datetime.now().isoformat(),
             "model": self.llm_client.model,
-            "prompt_style": self.prompt_style.value,
+            "prompt_style": self.prompt_template,
             "context_lines": self.context_lines,
             "total_prompts": len(prompts),
             "successful_responses": len(llm_results),
