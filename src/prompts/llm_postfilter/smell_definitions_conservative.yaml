@@ -12,11 +12,12 @@ Hard-coded secret: |
   The security risk is that these values are embedded in code rather than retrieved from secure external sources. In production infrastructure, ANY literal value in credential fields represents a potential security concern, regardless of whether the value seems "empty" or "default".
 
   Examples that SHOULD be flagged:
-  - password = ""
-  - password = nil  
-  - username = "root"
-  - api_key = "placeholder"
-  - secret = null
+  - password = "<literal_string>"
+  - password = "" or password = nil
+  - username = "<privileged_literal>"  # e.g., admin/root
+  - api_key = "<literal_string>"
+  - secret = null or secret = "<literal_string>"
+  - private_key = "<PEM_formatted_string>"
 
 Suspicious comment: |
   A suspicious comment is ANY comment containing keywords that indicate incomplete implementation, temporary workarounds, or areas needing attention in production infrastructure code.
@@ -35,10 +36,10 @@ Suspicious comment: |
   The domain of the TODO/FIXME (security vs general functionality) is less important than the fact that production infrastructure contains acknowledged incomplete code.
 
   Examples that SHOULD be flagged:
-  - # TODO: Fix, so it works for upgrade
-  - # FIXME: This class needs better documentation  
-  - # HACK: Temporary workaround
-  - # BUG: This doesn't handle edge case
+  - # TODO: ...
+  - # FIXME: ...
+  - # HACK: ...
+  - # BUG: ...
 
 Use of weak cryptography algorithms: |
   Use of weak cryptography algorithms refers to ANY implementation or configuration of cryptographic functions using algorithms known to be vulnerable or deprecated.
@@ -57,7 +58,6 @@ Use of weak cryptography algorithms: |
   - Variable names or strings that mention algorithms without actual implementation
 
   Examples that SHOULD be flagged:
-  - $home_sha = sha1($catalina_home)  # SHA1 used for any purpose
-  - hash_function = "md5"            # MD5 algorithm specified
-  - ssl_version = "TLSv1.0"          # Deprecated TLS version
-
+  - digest = sha1(value)              # when used for auth/signature/integrity
+  - algorithm = "md5"                # used for hashing secrets or verification
+  - ssl_version = "TLSv1.0"          # deprecated TLS version in configuration
