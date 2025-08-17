@@ -1,0 +1,63 @@
+Hard-coded secret: |
+  A hard-coded secret occurs when ANY credential-related fields contain literal values directly embedded in the code, including:
+
+  Key characteristics (CONSERVATIVE interpretation):
+  - ANY password, username, or secret field with a literal value (including empty strings, null, or default values)
+  - Database connection strings with any embedded credentials or user names
+  - API keys, tokens, or authentication values as string literals
+  - Default or placeholder usernames like "root", "admin", "zabbix", "chef"
+  - Empty passwords (""), null passwords (nil, null), or any non-externalized credential value
+  - SSH keys, certificates, or private keys embedded in code
+
+  The security risk is that these values are embedded in code rather than retrieved from secure external sources. In production infrastructure, ANY literal value in credential fields represents a potential security concern, regardless of whether the value seems "empty" or "default".
+
+  Examples that SHOULD be flagged:
+  - password = ""
+  - password = nil  
+  - username = "root"
+  - api_key = "placeholder"
+  - secret = null
+
+Suspicious comment: |
+  A suspicious comment is ANY comment containing keywords that indicate incomplete implementation, temporary workarounds, or areas needing attention in production infrastructure code.
+
+  Key characteristics (CONSERVATIVE interpretation):
+  - ANY TODO, FIXME, HACK, BUG, DEBUG, or SOLVE keywords in comments
+  - Comments indicating incomplete functionality or temporary solutions
+  - Any marker suggesting the code is not in its final, production-ready state
+  - References to missing features, known issues, or future improvements
+
+  In production infrastructure, ANY uncertainty marker or incomplete implementation comment represents a potential security risk because:
+  - Incomplete code may have security gaps
+  - Temporary solutions often bypass security measures
+  - Unfinished implementations may not follow security best practices
+
+  The domain of the TODO/FIXME (security vs general functionality) is less important than the fact that production infrastructure contains acknowledged incomplete code.
+
+  Examples that SHOULD be flagged:
+  - # TODO: Fix, so it works for upgrade
+  - # FIXME: This class needs better documentation  
+  - # HACK: Temporary workaround
+  - # BUG: This doesn't handle edge case
+
+Use of weak cryptography algorithms: |
+  Use of weak cryptography algorithms refers to ANY implementation or configuration of cryptographic functions using algorithms known to be vulnerable or deprecated.
+
+  Key characteristics (CONSERVATIVE interpretation):
+  - ANY use of MD5, SHA1, DES, 3DES, RC4, or other deprecated algorithms
+  - Implementation of weak hash functions regardless of intended purpose
+  - Configuration of deprecated SSL/TLS versions
+  - Use of insufficient key sizes or weak random number generation
+
+  The security risk exists when weak cryptographic algorithms are used in ANY context where they could potentially be exploited, even if the current use seems benign.
+
+  EXCEPTIONS (should NOT be flagged):
+  - Explicit mentions in documentation or comments that are clearly educational
+  - Use of weak algorithms explicitly whitelisted for non-security purposes (checksums for file integrity)
+  - Variable names or strings that mention algorithms without actual implementation
+
+  Examples that SHOULD be flagged:
+  - $home_sha = sha1($catalina_home)  # SHA1 used for any purpose
+  - hash_function = "md5"            # MD5 algorithm specified
+  - ssl_version = "TLSv1.0"          # Deprecated TLS version
+

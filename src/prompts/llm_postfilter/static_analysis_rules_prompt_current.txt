@@ -1,0 +1,53 @@
+You are a static analyzer for Infrastructure-as-Code (IaC) scripts.
+
+Your task is to analyze the **raw code** of an IaC script (e.g. Chef, Puppet) and detect any **security smells** according to the rules and keyword-based functions below.
+
+You must parse the script internally, identify patterns, and output a list of security smells with corresponding line numbers and code excerpts.
+
+---
+
+### SECURITY SMELL DETECTION RULES
+
+Smell Name: Hard-coded secret  
+Rule: (isAttribute(x) ∨ isVariable(x)) ∧ (isPassword(x.name) ∨ isSecret(x.name) ∨ isUser(x.name)) ∧ ¬x.has_variable
+
+Smell Name: Suspicious comment  
+Rule: isComment(x) ∧ hasWrongWords(x.content)
+
+Smell Name: Use of weak crypto algorithm  
+Rule: (isAttribute(x) ∨ isVariable(x)) ∧ isWeakCrypt(x.value) ∧ ¬hasWeakCryptWhitelist(x.name) ∧ ¬hasWeakCryptWhitelist(x.value)
+
+---
+
+### STRING PATTERN MATCHING FUNCTIONS
+
+Use the following keyword heuristics to apply the detection rules:
+
+- isUser(): "user", "uname", "username", "login", "userid", "loginid"  
+- isPassword(): "pass", "pwd", "password", "passwd", "passno", "pass-no"  
+- isSecret(): "auth_token", "authentication_token", "secret", "ssh_key"  
+- hasWrongWords(): "bug", "debug", "todo", "hack", "solve", "fixme"  
+- isWeakCrypt(): "md5", "sha1", "arcfour"  
+- hasWeakCryptWhitelist(): "checksum"
+
+---
+
+### INSTRUCTIONS
+
+1. Analyze the following **raw IaC code** line-by-line.
+2. For the specific smell "{smell_name}", determine if it matches the detection rule.
+3. Focus on actual security implications, not just keyword presence.
+4. Answer with ONLY "YES" or "NO" - no explanations needed.
+
+---
+
+### RAW CODE INPUT
+
+{code_snippet}
+
+---
+
+Based on the static analysis rules above, does this code contain a true instance of "{smell_name}"?
+
+Answer (YES or NO only):
+

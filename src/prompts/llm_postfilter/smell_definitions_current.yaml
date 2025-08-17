@@ -1,0 +1,51 @@
+Hard-coded secret: |
+  A hard-coded secret is a security vulnerability where sensitive information such as passwords, API keys, tokens, certificates, or other credentials are directly embedded in the source code as literal strings or variables, rather than being securely stored and retrieved from external configuration systems, environment variables, or secret management services.
+
+  Key characteristics:
+  - Passwords, API keys, tokens written directly in code
+  - Database connection strings with embedded credentials
+  - Cryptographic keys or certificates as string literals
+  - Authentication tokens hardcoded as variables
+  - Any sensitive value that should be externalized but is embedded in code
+
+  NOT hard-coded secrets:
+  - Placeholder values (e.g., "your-api-key-here", "REPLACE_ME")
+  - Example/demo credentials in comments or documentation
+  - Variable names that suggest secrets but contain non-sensitive values
+  - Configuration parameter names without actual secret values
+
+Suspicious comment: |
+  A suspicious comment is a code comment that indicates potential security issues, incomplete security implementations, or areas requiring security attention. These comments often signal unfinished work, security bypasses, or acknowledged vulnerabilities that may pose risks.
+
+  Key characteristics:
+  - TODO/FIXME comments related to security, authentication, authorization
+  - Comments indicating disabled security features or bypassed checks
+  - Warnings about insecure code or temporary security workarounds
+  - Comments suggesting hardcoded values should be externalized
+  - References to known security issues or vulnerabilities that need addressing
+
+  NOT suspicious comments:
+  - General TODO/FIXME for non-security functionality
+  - Documentation comments explaining legitimate security implementations
+  - Standard code documentation without security implications
+  - Performance or feature-related todos
+  - Comments that acknowledge and explain secure design decisions
+
+Use of weak cryptography algorithms: |
+  Use of weak cryptography algorithms refers to the implementation or configuration of cryptographic functions that are known to be vulnerable, deprecated, or insufficient for current security standards. This includes both algorithmically weak ciphers and poor cryptographic practices.
+
+  Key characteristics:
+  - Use of broken hash functions (MD5, SHA1) for security purposes
+  - Weak encryption algorithms (DES, 3DES, RC4)
+  - Insufficient key sizes for current standards
+  - Use of deprecated SSL/TLS versions (SSLv2, SSLv3, TLS 1.0)
+  - Weak random number generation for cryptographic purposes
+  - Improper cryptographic configurations
+
+  NOT weak cryptography:
+  - Use of weak algorithms for non-security purposes (checksums, legacy compatibility)
+  - References to weak algorithms in documentation or comments
+  - Configuration of strong, modern cryptographic algorithms
+  - Variable names mentioning algorithms without actual implementation
+  - Proper use of strong cryptographic libraries and functions
+
