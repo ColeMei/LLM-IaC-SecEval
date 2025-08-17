@@ -31,28 +31,34 @@ class PromptVersion(Enum):
 
 
 class ExternalPromptLoader:
-    """Loads prompts and definitions from external files using filename suffixes."""
+    """Loads prompts and definitions from external files using template names."""
     
-    def __init__(self, prompt_version: str = PromptVersion.CURRENT.value):
-        """Initialize with specified prompt version."""
-        self.prompt_version = prompt_version
+    def __init__(self, prompt_template: str = "definition_based_conservative"):
+        """Initialize with specified prompt template."""
+        self.prompt_template = prompt_template
         self.project_root = Path(__file__).parent.parent.parent
         self.prompts_dir = self.project_root / "src" / "prompts" / "llm_postfilter"
         
-        # Validate prompt version
-        if prompt_version not in [v.value for v in PromptVersion]:
-            raise ValueError(f"Invalid prompt version: {prompt_version}. Must be: {[v.value for v in PromptVersion]}")
+        # Parse template to extract style and version
+        if prompt_template.startswith("definition_based_"):
+            self.style = PromptStyle.DEFINITION_BASED
+            self.version = prompt_template.replace("definition_based_", "")
+        elif prompt_template.startswith("static_analysis_rules_"):
+            self.style = PromptStyle.STATIC_ANALYSIS_RULES  
+            self.version = prompt_template.replace("static_analysis_rules_", "")
+        else:
+            raise ValueError(f"Invalid prompt template: {prompt_template}")
         
         # Load definitions once during initialization
         self._definitions = self._load_smell_definitions()
     
     def _get_filename(self, base_name: str) -> Path:
         """Get filename with version suffix."""
-        return self.prompts_dir / f"{base_name}_{self.prompt_version}.txt"
+        return self.prompts_dir / f"{base_name}_{self.version}.txt"
     
     def _get_yaml_filename(self, base_name: str) -> Path:
         """Get YAML filename with version suffix."""
-        return self.prompts_dir / f"{base_name}_{self.prompt_version}.yaml"
+        return self.prompts_dir / f"{base_name}_{self.version}.yaml"
     
     def _load_smell_definitions(self) -> Dict[SecuritySmell, str]:
         """Load security smell definitions from YAML file."""
@@ -74,9 +80,9 @@ class ExternalPromptLoader:
         
         return definitions
     
-    def _load_prompt_template(self, style: PromptStyle) -> str:
+    def _load_prompt_template(self) -> str:
         """Load prompt template from file."""
-        if style == PromptStyle.DEFINITION_BASED:
+        if self.style == PromptStyle.DEFINITION_BASED:
             template_file = self._get_filename("definition_based_prompt")
         else:  # STATIC_ANALYSIS_RULES
             template_file = self._get_filename("static_analysis_rules_prompt")
@@ -90,16 +96,11 @@ class ExternalPromptLoader:
         """Get definition for a specific security smell."""
         return self._definitions[smell]
     
-    def create_prompt(
-        self, 
-        smell: SecuritySmell, 
-        code_snippet: str, 
-        style: PromptStyle = PromptStyle.DEFINITION_BASED
-    ) -> str:
+    def create_prompt(self, smell: SecuritySmell, code_snippet: str) -> str:
         """Create a complete prompt for a specific security smell and code snippet."""
-        template = self._load_prompt_template(style)
+        template = self._load_prompt_template()
         
-        if style == PromptStyle.DEFINITION_BASED:
+        if self.style == PromptStyle.DEFINITION_BASED:
             return template.format(
                 smell_definition=self.get_definition(smell),
                 smell_name=smell.value,
@@ -111,9 +112,9 @@ class ExternalPromptLoader:
                 code_snippet=code_snippet
             )
     
-    def get_base_prompt(self, style: PromptStyle = PromptStyle.DEFINITION_BASED) -> str:
-        """Get the base prompt template for the specified style."""
-        return self._load_prompt_template(style)
+    def get_base_prompt(self) -> str:
+        """Get the base prompt template."""
+        return self._load_prompt_template()
     
     @classmethod
     def get_smell_from_string(cls, smell_name: str) -> Optional[SecuritySmell]:
@@ -132,19 +133,26 @@ class ExternalPromptLoader:
         return None
     
     @classmethod
-    def get_available_versions(cls) -> list:
-        """Get list of available prompt versions by scanning filenames."""
+    def get_available_templates(cls) -> list:
+        """Get list of available prompt templates by scanning filenames."""
         prompts_dir = Path(__file__).parent.parent.parent / "src" / "prompts" / "llm_postfilter"
-        versions = set()
+        templates = set()
         
-        for file in prompts_dir.glob("*_*.txt"):
-            # Extract version from filename (e.g., "prompt_current.txt" -> "current")
+        for file in prompts_dir.glob("definition_based_prompt_*.txt"):
+            # Extract template name from filename (e.g., "definition_based_prompt_current.txt" -> "definition_based_current")
             parts = file.stem.split('_')
-            if len(parts) >= 2:
-                version = parts[-1]
-                versions.add(version)
+            if len(parts) >= 4:  # definition_based_prompt_version
+                template_name = f"definition_based_{parts[3]}"
+                templates.add(template_name)
         
-        return sorted(list(versions))
+        for file in prompts_dir.glob("static_analysis_rules_prompt_*.txt"):
+            # Extract template name from filename (e.g., "static_analysis_rules_prompt_current.txt" -> "static_analysis_rules_current")  
+            parts = file.stem.split('_')
+            if len(parts) >= 5:  # static_analysis_rules_prompt_version
+                template_name = f"static_analysis_rules_{parts[4]}"
+                templates.add(template_name)
+        
+        return sorted(list(templates))
     
     def get_validation_prompt(self, smell: SecuritySmell, style: PromptStyle = PromptStyle.DEFINITION_BASED) -> str:
         """Get a validation prompt to test LLM understanding of the smell definition."""

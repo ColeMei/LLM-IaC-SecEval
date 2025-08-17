@@ -6,15 +6,15 @@ It maintains the same API as the original prompt_templates.py but loads prompts 
 """
 
 from typing import Dict, Optional
-from .prompt_loader import ExternalPromptLoader, SecuritySmell, PromptStyle, PromptVersion
+from .prompt_loader import ExternalPromptLoader, SecuritySmell
 
 
 class SecuritySmellPrompts:
     """Backward-compatible container for security smell definitions and prompt templates."""
     
-    def __init__(self, prompt_version: str = PromptVersion.CURRENT.value):
-        """Initialize with specified prompt version."""
-        self.loader = ExternalPromptLoader(prompt_version)
+    def __init__(self, prompt_template: str = "definition_based_conservative"):
+        """Initialize with specified prompt template."""
+        self.loader = ExternalPromptLoader(prompt_template)
     
     @property
     def DEFINITIONS(self) -> Dict[SecuritySmell, str]:
@@ -22,60 +22,35 @@ class SecuritySmellPrompts:
         return {smell: self.loader.get_definition(smell) for smell in SecuritySmell}
     
     @classmethod
-    def get_definition_based_prompt(cls, prompt_version: str = PromptVersion.CURRENT.value) -> str:
-        """Get the definition-based prompt template."""
-        loader = ExternalPromptLoader(prompt_version)
-        return loader.get_base_prompt(PromptStyle.DEFINITION_BASED)
-    
-    @classmethod
-    def get_static_analysis_rules_prompt(cls, prompt_version: str = PromptVersion.CURRENT.value) -> str:
-        """Get the static analysis rules-based prompt template."""
-        loader = ExternalPromptLoader(prompt_version)
-        return loader.get_base_prompt(PromptStyle.STATIC_ANALYSIS_RULES)
-    
-    @classmethod
-    def get_base_prompt(cls, style: PromptStyle = PromptStyle.DEFINITION_BASED, prompt_version: str = PromptVersion.CURRENT.value) -> str:
-        """Get the base prompt template for the specified style."""
-        loader = ExternalPromptLoader(prompt_version)
-        return loader.get_base_prompt(style)
-    
-    @classmethod
-    def create_prompt(
-        cls, 
-        smell: SecuritySmell, 
-        code_snippet: str, 
-        style: PromptStyle = PromptStyle.DEFINITION_BASED,
-        prompt_version: str = PromptVersion.CURRENT.value
-    ) -> str:
+    def create_prompt(cls, smell: SecuritySmell, code_snippet: str, prompt_template: str = "definition_based_conservative") -> str:
         """Create a complete prompt for a specific security smell and code snippet."""
-        loader = ExternalPromptLoader(prompt_version)
-        return loader.create_prompt(smell, code_snippet, style)
+        loader = ExternalPromptLoader(prompt_template)
+        return loader.create_prompt(smell, code_snippet)
+    
+    @classmethod
+    def get_base_prompt(cls, prompt_template: str = "definition_based_conservative") -> str:
+        """Get the base prompt template."""
+        loader = ExternalPromptLoader(prompt_template)
+        return loader.get_base_prompt()
+    
+    @classmethod
+    def get_available_templates(cls) -> list:
+        """Get list of available prompt templates."""
+        return ExternalPromptLoader.get_available_templates()
     
     @classmethod
     def get_smell_from_string(cls, smell_name: str) -> Optional[SecuritySmell]:
         """Convert string smell name to SecuritySmell enum."""
         return ExternalPromptLoader.get_smell_from_string(smell_name)
     
-    @classmethod
-    def get_prompt_style_from_string(cls, style_name: str) -> Optional[PromptStyle]:
-        """Convert string style name to PromptStyle enum."""
-        return ExternalPromptLoader.get_prompt_style_from_string(style_name)
-    
-    @classmethod
-    def get_validation_prompt(cls, smell: SecuritySmell, style: PromptStyle = PromptStyle.DEFINITION_BASED, prompt_version: str = PromptVersion.CURRENT.value) -> str:
-        """Get a validation prompt to test LLM understanding of the smell definition."""
-        loader = ExternalPromptLoader(prompt_version)
-        return loader.get_validation_prompt(smell, style)
+
 
 
 # For backward compatibility with existing imports
-from .prompt_loader import SecuritySmell, PromptStyle
+from .prompt_loader import SecuritySmell
 
-# Add PromptVersion for new functionality
 __all__ = [
     'SecuritySmellPrompts',
-    'SecuritySmell', 
-    'PromptStyle',
-    'PromptVersion'
+    'SecuritySmell'
 ]
 
