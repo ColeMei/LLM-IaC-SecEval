@@ -36,7 +36,11 @@ class GLITCHDetectionExtractor:
     def load_baseline_data(self, iac_tool: str) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Load oracle and GLITCH datasets for specified IaC tool."""
         oracle_file = self.data_dir / f"oracle-dataset-{iac_tool.lower()}.csv"
-        glitch_file = self.data_dir / f"GLITCH-{iac_tool.lower()}-oracle.csv"
+        # Handle special Ansible GLITCH filename
+        if iac_tool.lower() == "ansible":
+            glitch_file = self.data_dir / "GLITCH-ansible-oracle_fixed_improved.csv"
+        else:
+            glitch_file = self.data_dir / f"GLITCH-{iac_tool.lower()}-oracle.csv"
         
         if not oracle_file.exists() or not glitch_file.exists():
             raise FileNotFoundError(f"Dataset files not found for {iac_tool}")
@@ -175,15 +179,15 @@ class GLITCHDetectionExtractor:
 
 
 def main():
-    """Main function to extract detections for both Chef and Puppet."""
+    """Main function to extract detections for Chef, Puppet, and Ansible."""
     # Get project root relative to this file location
     project_root = Path(__file__).parent.parent.parent
     extractor = GLITCHDetectionExtractor(project_root)
     
     logger.info("Starting GLITCH detection extraction for hybrid LLM pipeline")
     
-    # Extract for both IaC tools
-    for iac_tool in ['chef', 'puppet']:
+    # Extract for supported IaC tools
+    for iac_tool in ['chef', 'puppet', 'ansible']:
         logger.info(f"Processing {iac_tool.upper()} detections...")
         try:
             detections = extractor.save_detections(iac_tool)
