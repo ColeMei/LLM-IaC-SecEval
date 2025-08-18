@@ -36,7 +36,8 @@ Our research focuses on detecting **9 categories of security smells** commonly f
 
 **Methodology**:
 
-- Direct prompting of state-of-the-art LLMs (GPT-4, Claude, etc.)
+- Direct prompting of state-of-the-art LLMs (GPT-4, Claude, Ollama models)
+- Multiple configurable prompt templates for optimization
 - Systematic evaluation across comprehensive IaC script datasets
 - Analysis of detection accuracy, precision, and recall for each security smell type
 - Investigation of prompt engineering techniques for optimal performance
@@ -51,10 +52,13 @@ Our research focuses on detecting **9 categories of security smells** commonly f
 
 - **Stage 1**: Use GLITCH (static analysis tool) for initial detection with high recall
 - **Stage 2**: Apply LLMs as intelligent post-filters to reduce false positives
-- Focus on **3 specific security smells** where semantic understanding provides value:
+- Focus on **4 specific security smells** where semantic understanding provides value:
   - Hard-coded secrets (distinguish real secrets from placeholders)
   - Suspicious comments (identify security-relevant vs. general comments)
   - Weak cryptography (detect actual usage vs. documentation mentions)
+  - Use of HTTP without SSL/TLS (identify insecure communication patterns)
+- Configurable prompt templates and context extraction
+- Support for multiple LLM providers (OpenAI, Anthropic, Ollama, OpenAI-compatible APIs)
 
 **Rationale**: Static tools excel at comprehensive pattern matching (high recall) but generate many false alarms (low precision). LLMs can provide contextual understanding to filter out false positives while preserving true security issues.
 

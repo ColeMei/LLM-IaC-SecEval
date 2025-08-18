@@ -4,7 +4,7 @@ Technical documentation for the pure LLM-based security smell detection pipeline
 
 ## Overview
 
-The **LLM Pure** methodology evaluates Infrastructure as Code (IaC) files directly using Large Language Models without any pre-filtering by static analysis tools. This approach tests the standalone capability of LLMs to detect security smells in IaC scripts.
+The **LLM Pure** methodology evaluates Infrastructure as Code (IaC) files directly using Large Language Models without any pre-filtering by static analysis tools. This approach tests the standalone capability of LLMs to detect all 9 security smell categories in IaC scripts with configurable prompt styles and multi-provider support.
 
 ## Prompt Styles
 

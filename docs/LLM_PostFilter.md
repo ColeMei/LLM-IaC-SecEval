@@ -34,11 +34,12 @@ This creates **alert fatigue** and reduces tool adoption in practice.
 
 ### Target Security Smells
 
-We focus on **3 security smell categories** where semantic understanding helps:
+We focus on **4 security smell categories** where semantic understanding helps:
 
 1. **Hard-coded Secrets**: Distinguish real secrets from placeholders/examples
 2. **Suspicious Comments**: Identify security-relevant vs general TODO comments
 3. **Weak Cryptography**: Detect actual usage vs documentation mentions
+4. **Use of HTTP without SSL/TLS**: Identify insecure communication patterns vs documentation
 
 ### Evaluation Data
 
@@ -50,11 +51,18 @@ We focus on **3 security smell categories** where semantic understanding helps:
 ```
 src/llm_postfilter/
 ├── data_extractor.py      # Extract GLITCH detections
-├── context_extractor.py   # Code context extraction
-├── llm_client.py          # LLM integration
+├── context_extractor.py   # Code context extraction (configurable lines)
+├── llm_client.py          # Multi-provider LLM integration
 ├── llm_filter.py          # Main filtering pipeline
 ├── evaluator.py           # Performance evaluation
-└── prompt_templates.py    # Prompt definitions
+├── prompt_templates.py    # Backward-compatible prompt interface
+└── prompt_loader.py       # External prompt system
+
+src/prompts/llm_postfilter/
+├── definition_based_conservative.txt    # Conservative prompt template
+├── static_analysis_rules.txt           # Rule-based prompt template
+├── smell_definitions_conservative.yaml # Security smell definitions
+└── static_analysis_functions.yaml     # Pattern matching functions
 
 experiments/llm_postfilter/
 ├── notebooks/
@@ -88,14 +96,21 @@ jupyter notebook experiments/llm_postfilter/notebooks/01_data_extraction.ipynb
 jupyter notebook experiments/llm_postfilter/notebooks/02_llm_experiment.ipynb
 ```
 
+**Configuration Options:**
+
+- **LLM Provider**: OpenAI, Anthropic, Ollama, or OpenAI-compatible endpoints
+- **Prompt Templates**: Multiple styles (definition_based_conservative, static_analysis_rules)
+- **Context Lines**: Configurable number of lines around target detection (0 = target only)
+- **Model Selection**: Provider-specific models (GPT-4o, Claude-3.5-Sonnet, CodeLlama, etc.)
+
 **Provider/Model Selection:**
 
-- Manual override in the notebook (recommended): set `provider`, `model`, and optional `base_url` in the first setup cell. Supported providers: `openai`, `anthropic`, `ollama`, `openai_compatible`.
-- Or via environment variables before launching Jupyter:
-  - `LLM_PROVIDER` (one of above)
-  - `LLM_MODEL` (e.g., `gpt-4o`, `claude-3-5-sonnet-latest`, `codellama:7b`)
-  - `LLM_BASE_URL` for Ollama or OpenAI-compatible endpoints
-  - API key per provider: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `OPENAI_COMPATIBLE_API_KEY`
+- Manual override in notebook (recommended): set `provider`, `model`, and optional `base_url`
+- Or via environment variables:
+  - `LLM_PROVIDER`: openai, anthropic, ollama, openai_compatible
+  - `LLM_MODEL`: model name (e.g., gpt-4o-mini, claude-3-5-sonnet-latest, codellama:7b)
+  - `LLM_BASE_URL`: for Ollama or OpenAI-compatible endpoints
+  - API keys: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_COMPATIBLE_API_KEY`
 
 **Process:**
 
@@ -104,10 +119,27 @@ jupyter notebook experiments/llm_postfilter/notebooks/02_llm_experiment.ipynb
 3. Evaluate GLITCH vs GLITCH+LLM performance
 4. Generate comprehensive reports and analysis
 
-### Context Window
+## Key Features
 
-- Configure the number of lines around the target line used in prompts (`context_lines`).
-- Set in the notebook via `CONTEXT_LINES` (0 = target line only; default 3).
+### Multi-Provider LLM Support
+
+- **OpenAI**: GPT-4o, GPT-4o-mini with API key authentication
+- **Anthropic**: Claude-3.5-Sonnet and other models with API key authentication
+- **Ollama**: Local models (CodeLlama, Llama, etc.) via HTTP API
+- **OpenAI-Compatible**: Custom endpoints supporting OpenAI API format
+
+### Configurable Prompt System
+
+- **External Templates**: Prompt templates stored in separate files for easy modification
+- **Multiple Styles**: Definition-based and static-analysis-rule-based prompts
+- **Versioning**: Support for different prompt versions (conservative, standard, etc.)
+- **IaC Technology Context**: Automatic detection and inclusion of IaC tool context
+
+### Flexible Context Extraction
+
+- **Configurable Context Lines**: Set number of lines around target detection (0 = target only)
+- **Smart Context**: Automatically adjusts for file boundaries and code structure
+- **Multiple Technologies**: Support for Chef, Puppet, and Ansible syntax
 
 ```
 experiments/llm_postfilter/data/llm_results/    # Latest/working results
