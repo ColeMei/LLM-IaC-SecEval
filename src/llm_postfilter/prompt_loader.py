@@ -39,7 +39,7 @@ class ExternalPromptLoader:
         self.project_root = Path(__file__).parent.parent.parent
         self.prompts_dir = self.project_root / "src" / "prompts" / "llm_postfilter"
         
-        # Parse template to extract style and version (version is optional and free-form)
+        # Parse template to extract style and version
         if prompt_template.startswith("definition_based"):
             self.style = PromptStyle.DEFINITION_BASED
             if prompt_template == "definition_based":
@@ -69,7 +69,7 @@ class ExternalPromptLoader:
             try:
                 self._rules = self._load_static_rules()
             except FileNotFoundError:
-                # Fallback to template without per-smell rules
+                # Use template without per-smell rules
                 self._rules = None
             try:
                 self._functions = self._load_static_functions()
@@ -201,7 +201,7 @@ class ExternalPromptLoader:
                 iac_tech=iac_tech_value
             )
         else:  # STATIC_ANALYSIS_RULES
-            # Include per-smell rule if template supports it; otherwise ignore
+            # Include per-smell rule if available
             try:
                 return template.format(
                     smell_name=smell.value,

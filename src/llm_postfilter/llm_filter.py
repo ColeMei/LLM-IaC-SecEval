@@ -74,7 +74,7 @@ class GLITCHLLMFilter:
         # Allow 0 for target-line-only; clamp negatives to 0
         self.context_lines = max(0, int(context_lines))
         
-        # Prompt template configuration
+        # Configure prompt template
         available_templates = SecuritySmellPrompts.get_available_templates()
         if prompt_template not in available_templates:
             logger.warning(f"Unknown prompt template '{prompt_template}', defaulting to definition_based_conservative")
@@ -135,7 +135,7 @@ class GLITCHLLMFilter:
                 file_path_val = str(detection['file_path']) if 'file_path' in detection else ""
                 iac_tool_value = self._infer_iac_tech(file_path_val)
 
-            # Generate prompt using the configured template, include IaC tech
+            # Generate prompt with IaC technology context
             prompt = SecuritySmellPrompts.create_prompt(
                 smell, 
                 detection['context_snippet'],
@@ -387,16 +387,16 @@ def main():
     """Test the complete LLM filtering pipeline."""
     project_root = Path(__file__).parent.parent.parent
     
-    # Test with a small detection file
+
     data_dir = project_root / "experiments/llm-postfilter/data"
     test_file = data_dir / "chef_suspicious_comment_detections.csv"
     
     if test_file.exists():
         try:
-            # Initialize filter (requires OPENAI_API_KEY)
+
             filter_pipeline = GLITCHLLMFilter(project_root)
             
-            # Run filtering pipeline
+
             results_dir = data_dir / "llm_results"
             filtered_df = filter_pipeline.filter_detections(test_file, results_dir)
             

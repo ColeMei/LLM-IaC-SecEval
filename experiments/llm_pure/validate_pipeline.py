@@ -31,9 +31,9 @@ def test_file_processing():
                 top_smells = sorted(stat['smell_counts'].items(), key=lambda x: x[1], reverse=True)[:3]
                 print(f"    Top smells: {', '.join(f'{s}({c})' for s, c in top_smells)}")
     
-    # Test batch processing on first file
+    # Test batch processing
     print("\nTesting batch processing (first file only)...")
-    for tech in ['ansible']:  # Just test one
+    for tech in ['ansible']:
         try:
             for i, file_info in enumerate(processor.batch_process_files(tech, limit=1)):
                 print(f"  {tech}: {file_info['filename']} ({file_info['file_size']} bytes, {file_info['line_count']} lines)")
