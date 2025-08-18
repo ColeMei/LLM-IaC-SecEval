@@ -124,16 +124,40 @@ class GLITCHLLMFilter:
                 logger.warning(f"Unknown smell category: {detection['smell_category']}")
                 continue
             
-            # Generate prompt using the configured template
+            # Determine IaC technology, prefer explicit column then infer from file path
+            iac_tool_value = None
+            try:
+                if 'iac_tool' in detection and pd.notna(detection['iac_tool']):
+                    iac_tool_value = str(detection['iac_tool']).strip()
+            except Exception:
+                iac_tool_value = None
+            if not iac_tool_value:
+                file_path_val = str(detection['file_path']) if 'file_path' in detection else ""
+                iac_tool_value = self._infer_iac_tech(file_path_val)
+
+            # Generate prompt using the configured template, include IaC tech
             prompt = SecuritySmellPrompts.create_prompt(
                 smell, 
                 detection['context_snippet'],
-                prompt_template=self.prompt_template
+                prompt_template=self.prompt_template,
+                iac_tech=iac_tool_value
             )
             prompts.append((idx, detection['detection_id'], prompt))
         
         logger.info(f"Generated {len(prompts)} prompts for LLM evaluation using {self.prompt_template} template")
         return prompts
+
+    @staticmethod
+    def _infer_iac_tech(file_path: str) -> str:
+        """Infer IaC technology from file path or extension."""
+        path_lower = (file_path or "").lower()
+        if path_lower.endswith('.rb') or '/cookbooks/' in path_lower or 'chef' in path_lower:
+            return 'Chef'
+        if path_lower.endswith('.pp') or '/manifests/' in path_lower or 'puppet' in path_lower:
+            return 'Puppet'
+        if path_lower.endswith('.yml') or path_lower.endswith('.yaml') or 'ansible' in path_lower or '/playbooks/' in path_lower:
+            return 'Ansible'
+        return 'IaC'
     
     def evaluate_with_llm(self, prompts: List[Tuple[int, str, str]]) -> Dict[int, LLMResponse]:
         """Evaluate detections using LLM."""

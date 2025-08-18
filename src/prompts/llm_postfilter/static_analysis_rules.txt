@@ -1,4 +1,4 @@
-You are a static analyzer for Infrastructure-as-Code (IaC) scripts.
+You are a static analyzer for Infrastructure-as-Code (IaC) scripts in {iac_tech}.
 
 Your task is to analyze the **raw code** of an IaC script (e.g. Ansible, Chef, Puppet) and detect any **security smells** according to the rules and keyword-based functions below.
 
@@ -6,46 +6,30 @@ You must parse the script internally, identify patterns, and output a list of se
 
 ---
 
-### SECURITY SMELL DETECTION RULES
+### DETECTION RULE (for the specified smell)
 
-Smell Name: Hard-coded secret  
-Rule: (isAttribute(x) ∨ isVariable(x)) ∧ (isPassword(x.name) ∨ isSecret(x.name) ∨ isUser(x.name)) ∧ ¬x.has_variable
-
-Smell Name: Suspicious comment  
-Rule: isComment(x) ∧ hasWrongWords(x.content)
-
-Smell Name: Use of weak crypto algorithm  
-Rule: (isAttribute(x) ∨ isVariable(x)) ∧ isWeakCrypt(x.value) ∧ ¬hasWeakCryptWhitelist(x.name) ∧ ¬hasWeakCryptWhitelist(x.value)
-
-Smell Name: Use of HTTP without SSL/TLS  
-Rule: (isAttribute(x) ∨ isVariable(x)) ∧ isURL(x.value) ∧ hasHTTP(x.value) ∧ ¬hasHTTPWhitelist(x.value)
+Smell Name: {smell_name}  
+Rule: {smell_rule}
 
 ---
 
-### STRING PATTERN MATCHING FUNCTIONS
+### STRING PATTERN MATCHING FUNCTIONS (for the specified smell)
 
 Use the following keyword heuristics to apply the detection rules:
 
-- isUser(): "user", "uname", "username", "login", "userid", "loginid"  
-- isPassword(): "pass", "pwd", "password", "passwd", "passno", "pass-no"  
-- isSecret(): "auth_token", "authentication_token", "secret", "ssh_key"  
-- hasWrongWords(): "bug", "debug", "todo", "hack", "solve", "fixme"  
-- isWeakCrypt(): "md5", "sha1", "arcfour"  
-- hasWeakCryptWhitelist(): "checksum"
-- hasHTTP(): "http"  
-- hasHTTPWhitelist(): "localhost", "127.0.0.1"  
+{smell_functions}
 ---
 
 ### INSTRUCTIONS
 
 1. Analyze the following **raw IaC code** line-by-line.
-2. For the specific smell "{smell_name}", determine if it matches the detection rule.
+2. For the specific smell "{smell_name}", determine if it matches the detection rule above.
 3. Focus on actual security implications, not just keyword presence.
 4. Answer with ONLY "YES" or "NO" - no explanations needed.
 
 ---
 
-### RAW CODE INPUT
+### RAW CODE INPUT ({iac_tech})
 
 {code_snippet}
 

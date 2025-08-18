@@ -1,0 +1,11 @@
+Hard-coded secret: |
+  (isAttribute(x) ∨ isVariable(x)) ∧ (isPassword(x.name) ∨ isSecret(x.name) ∨ isUser(x.name)) ∧ ¬x.has_variable
+
+Suspicious comment: |
+  isComment(x) ∧ hasWrongWords(x.content)
+
+Use of weak cryptography algorithms: |
+  (isAttribute(x) ∨ isVariable(x)) ∧ isWeakCrypt(x.value) ∧ ¬hasWeakCryptWhitelist(x.name) ∧ ¬hasWeakCryptWhitelist(x.value)
+
+Use of HTTP without SSL/TLS: |
+  (isAttribute(x) ∨ isVariable(x)) ∧ isURL(x.value) ∧ hasHTTP(x.value) ∧ ¬hasHTTPWhitelist(x.value)

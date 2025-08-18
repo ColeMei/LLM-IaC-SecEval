@@ -22,10 +22,12 @@ class SecuritySmellPrompts:
         return {smell: self.loader.get_definition(smell) for smell in SecuritySmell}
     
     @classmethod
-    def create_prompt(cls, smell: SecuritySmell, code_snippet: str, prompt_template: str = "definition_based_conservative") -> str:
-        """Create a complete prompt for a specific security smell and code snippet."""
+    def create_prompt(cls, smell: SecuritySmell, code_snippet: str, prompt_template: str = "definition_based_conservative", iac_tech: Optional[str] = None) -> str:
+        """Create a complete prompt for a specific security smell and code snippet.
+        Optionally include the IaC technology name to specialize the prompt text.
+        """
         loader = ExternalPromptLoader(prompt_template)
-        return loader.create_prompt(smell, code_snippet)
+        return loader.create_prompt(smell, code_snippet, iac_tech)
     
     @classmethod
     def get_base_prompt(cls, prompt_template: str = "definition_based_conservative") -> str:

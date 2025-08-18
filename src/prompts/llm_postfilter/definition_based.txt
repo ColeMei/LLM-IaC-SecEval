@@ -1,4 +1,4 @@
-You are an expert in Infrastructure-as-Code (IaC) security analysis specializing in Ansible playbooks, Chef cookbooks and Puppet manifests.
+You are an expert in Infrastructure-as-Code (IaC) security analysis specializing in {iac_tech}.
 
 A static analysis tool has flagged a potential security issue in an IaC script. Your task is to determine whether this detection represents a true instance of the specified security smell.
 
@@ -11,7 +11,7 @@ Instructions:
 
 {smell_definition}
 
-Code snippet to analyze:
+Code snippet to analyze ({iac_tech}):
 {code_snippet}
 
 Based on the definition above and the code context, is this a true instance of "{smell_name}"?

@@ -61,6 +61,20 @@ class ExternalPromptLoader:
         
         # Load definitions once during initialization
         self._definitions = self._load_smell_definitions()
+        
+        # Load static-analysis rules mapping (smell -> rule) if using that style
+        self._rules = None
+        self._functions = None
+        if self.style == PromptStyle.STATIC_ANALYSIS_RULES:
+            try:
+                self._rules = self._load_static_rules()
+            except FileNotFoundError:
+                # Fallback to template without per-smell rules
+                self._rules = None
+            try:
+                self._functions = self._load_static_functions()
+            except FileNotFoundError:
+                self._functions = None
     
     def _get_template_filename(self) -> Path:
         """Resolve the prompt template filename based on style and optional version.
@@ -101,6 +115,52 @@ class ExternalPromptLoader:
         
         return definitions
     
+    def _load_static_rules(self) -> Dict[SecuritySmell, str]:
+        """Load static-analysis detection rules from YAML file (per smell)."""
+        rules_file = self._get_yaml_filename("static_analysis_rules")
+        
+        if not rules_file.exists():
+            raise FileNotFoundError(f"Static analysis rules file not found: {rules_file}")
+        
+        with open(rules_file, 'r', encoding='utf-8') as f:
+            rules_dict = yaml.safe_load(f)
+        
+        rules = {}
+        for smell in SecuritySmell:
+            if smell.value in rules_dict:
+                rules[smell] = str(rules_dict[smell.value]).strip()
+            else:
+                raise KeyError(f"Rule for '{smell.value}' not found in {rules_file}")
+        
+        return rules
+
+    def _load_static_functions(self) -> Dict[SecuritySmell, str]:
+        """Load static-analysis string-matching functions from YAML (per smell) and format as a bullet list string with heuristics."""
+        functions_file = self._get_yaml_filename("static_analysis_functions")
+        
+        if not functions_file.exists():
+            raise FileNotFoundError(f"Static analysis functions file not found: {functions_file}")
+        
+        with open(functions_file, 'r', encoding='utf-8') as f:
+            functions_dict = yaml.safe_load(f)
+        
+        formatted: Dict[SecuritySmell, str] = {}
+        for smell in SecuritySmell:
+            if smell.value not in functions_dict:
+                raise KeyError(f"Functions for '{smell.value}' not found in {functions_file}")
+            # Each smell maps to a dict of function_name -> list of keywords
+            fn_map = functions_dict[smell.value] or {}
+            bullets = []
+            for func_name, keywords in fn_map.items():
+                if not keywords:
+                    bullets.append(f"- {func_name}()")
+                else:
+                    # Quote keywords and join with commas
+                    quoted = ", ".join([f'"{kw}"' for kw in keywords])
+                    bullets.append(f"- {func_name}(): {quoted}")
+            formatted[smell] = "\n".join(bullets).strip()
+        return formatted
+    
     def _load_prompt_template(self) -> str:
         """Load prompt template from file."""
         template_file = self._get_template_filename()
@@ -114,21 +174,48 @@ class ExternalPromptLoader:
         """Get definition for a specific security smell."""
         return self._definitions[smell]
     
-    def create_prompt(self, smell: SecuritySmell, code_snippet: str) -> str:
-        """Create a complete prompt for a specific security smell and code snippet."""
+    def get_rule(self, smell: SecuritySmell) -> str:
+        """Get static-analysis rule for a specific security smell (if available)."""
+        if self._rules is None:
+            return ""
+        return self._rules[smell]
+
+    def get_functions(self, smell: SecuritySmell) -> str:
+        """Get formatted function list for a specific security smell (if available)."""
+        if self._functions is None:
+            return ""
+        return self._functions[smell]
+    
+    def create_prompt(self, smell: SecuritySmell, code_snippet: str, iac_tech: Optional[str] = None) -> str:
+        """Create a complete prompt for a specific security smell and code snippet.
+        Optionally include the IaC technology name to specialize the prompt text.
+        """
         template = self._load_prompt_template()
+        iac_tech_value = (iac_tech or "Ansible/Chef/Puppet").strip()
         
         if self.style == PromptStyle.DEFINITION_BASED:
             return template.format(
                 smell_definition=self.get_definition(smell),
                 smell_name=smell.value,
-                code_snippet=code_snippet
+                code_snippet=code_snippet,
+                iac_tech=iac_tech_value
             )
         else:  # STATIC_ANALYSIS_RULES
-            return template.format(
-                smell_name=smell.value,
-                code_snippet=code_snippet
-            )
+            # Include per-smell rule if template supports it; otherwise ignore
+            try:
+                return template.format(
+                    smell_name=smell.value,
+                    smell_rule=self.get_rule(smell),
+                    smell_functions=self.get_functions(smell),
+                    code_snippet=code_snippet,
+                    iac_tech=iac_tech_value
+                )
+            except KeyError:
+                return template.format(
+                    smell_name=smell.value,
+                    code_snippet=code_snippet,
+                    iac_tech=iac_tech_value
+                )
     
     def get_base_prompt(self) -> str:
         """Get the base prompt template."""
