@@ -16,6 +16,7 @@ class SecuritySmell(Enum):
     HARD_CODED_SECRET = "Hard-coded secret"
     SUSPICIOUS_COMMENT = "Suspicious comment"
     WEAK_CRYPTOGRAPHY = "Use of weak cryptography algorithms"
+    HTTP_WITHOUT_SSL_TLS = "Use of HTTP without SSL/TLS"
 
 
 class PromptStyle(Enum):
@@ -24,10 +25,9 @@ class PromptStyle(Enum):
     STATIC_ANALYSIS_RULES = "static_analysis_rules"
 
 
-class PromptVersion(Enum):
-    """Enumeration of prompt versions."""
-    CURRENT = "current"
-    CONSERVATIVE = "conservative"
+"""Prompt versions are represented by free-form suffixes in filenames.
+We intentionally avoid an enum to make adding new versions simpler.
+"""
 
 
 class ExternalPromptLoader:
@@ -39,25 +39,46 @@ class ExternalPromptLoader:
         self.project_root = Path(__file__).parent.parent.parent
         self.prompts_dir = self.project_root / "src" / "prompts" / "llm_postfilter"
         
-        # Parse template to extract style and version
-        if prompt_template.startswith("definition_based_"):
+        # Parse template to extract style and version (version is optional and free-form)
+        if prompt_template.startswith("definition_based"):
             self.style = PromptStyle.DEFINITION_BASED
-            self.version = prompt_template.replace("definition_based_", "")
-        elif prompt_template.startswith("static_analysis_rules_"):
-            self.style = PromptStyle.STATIC_ANALYSIS_RULES  
-            self.version = prompt_template.replace("static_analysis_rules_", "")
+            if prompt_template == "definition_based":
+                self.version = None
+            elif prompt_template.startswith("definition_based_"):
+                self.version = prompt_template.replace("definition_based_", "", 1)
+            else:
+                raise ValueError(f"Invalid prompt template: {prompt_template}")
+        elif prompt_template.startswith("static_analysis_rules"):
+            self.style = PromptStyle.STATIC_ANALYSIS_RULES
+            if prompt_template == "static_analysis_rules":
+                self.version = None
+            elif prompt_template.startswith("static_analysis_rules_"):
+                self.version = prompt_template.replace("static_analysis_rules_", "", 1)
+            else:
+                raise ValueError(f"Invalid prompt template: {prompt_template}")
         else:
             raise ValueError(f"Invalid prompt template: {prompt_template}")
         
         # Load definitions once during initialization
         self._definitions = self._load_smell_definitions()
     
-    def _get_filename(self, base_name: str) -> Path:
-        """Get filename with version suffix."""
-        return self.prompts_dir / f"{base_name}_{self.version}.txt"
+    def _get_template_filename(self) -> Path:
+        """Resolve the prompt template filename based on style and optional version.
+        Uses names without the "_prompt" suffix, e.g., definition_based.txt or definition_based_<version>.txt
+        """
+        if self.style == PromptStyle.DEFINITION_BASED:
+            if self.version is None:
+                return self.prompts_dir / "definition_based.txt"
+            return self.prompts_dir / f"definition_based_{self.version}.txt"
+        else:
+            if self.version is None:
+                return self.prompts_dir / "static_analysis_rules.txt"
+            return self.prompts_dir / f"static_analysis_rules_{self.version}.txt"
     
     def _get_yaml_filename(self, base_name: str) -> Path:
-        """Get YAML filename with version suffix."""
+        """Get YAML filename for smell definitions. Uses versionless default when self.version is None."""
+        if self.version is None:
+            return self.prompts_dir / f"{base_name}.yaml"
         return self.prompts_dir / f"{base_name}_{self.version}.yaml"
     
     def _load_smell_definitions(self) -> Dict[SecuritySmell, str]:
@@ -82,10 +103,7 @@ class ExternalPromptLoader:
     
     def _load_prompt_template(self) -> str:
         """Load prompt template from file."""
-        if self.style == PromptStyle.DEFINITION_BASED:
-            template_file = self._get_filename("definition_based_prompt")
-        else:  # STATIC_ANALYSIS_RULES
-            template_file = self._get_filename("static_analysis_rules_prompt")
+        template_file = self._get_template_filename()
         
         if not template_file.exists():
             raise FileNotFoundError(f"Template file not found: {template_file}")
@@ -134,24 +152,32 @@ class ExternalPromptLoader:
     
     @classmethod
     def get_available_templates(cls) -> list:
-        """Get list of available prompt templates by scanning filenames."""
+        """Get list of available prompt templates by scanning filenames.
+        Includes versionless defaults and any versioned variants (free-form suffixes)."""
         prompts_dir = Path(__file__).parent.parent.parent / "src" / "prompts" / "llm_postfilter"
         templates = set()
-        
-        for file in prompts_dir.glob("definition_based_prompt_*.txt"):
-            # Extract template name from filename (e.g., "definition_based_prompt_current.txt" -> "definition_based_current")
-            parts = file.stem.split('_')
-            if len(parts) >= 4:  # definition_based_prompt_version
-                template_name = f"definition_based_{parts[3]}"
-                templates.add(template_name)
-        
-        for file in prompts_dir.glob("static_analysis_rules_prompt_*.txt"):
-            # Extract template name from filename (e.g., "static_analysis_rules_prompt_current.txt" -> "static_analysis_rules_current")  
-            parts = file.stem.split('_')
-            if len(parts) >= 5:  # static_analysis_rules_prompt_version
-                template_name = f"static_analysis_rules_{parts[4]}"
-                templates.add(template_name)
-        
+
+        # Versionless defaults
+        if (prompts_dir / "definition_based.txt").exists():
+            templates.add("definition_based")
+        if (prompts_dir / "static_analysis_rules.txt").exists():
+            templates.add("static_analysis_rules")
+
+        # Versioned variants (free-form)
+        for file in prompts_dir.glob("definition_based_*.txt"):
+            # Skip the base file handled above
+            if file.name == "definition_based.txt":
+                continue
+            version = file.stem.replace("definition_based_", "", 1)
+            if version:
+                templates.add(f"definition_based_{version}")
+        for file in prompts_dir.glob("static_analysis_rules_*.txt"):
+            if file.name == "static_analysis_rules.txt":
+                continue
+            version = file.stem.replace("static_analysis_rules_", "", 1)
+            if version:
+                templates.add(f"static_analysis_rules_{version}")
+
         return sorted(list(templates))
     
     def get_validation_prompt(self, smell: SecuritySmell, style: PromptStyle = PromptStyle.DEFINITION_BASED) -> str:

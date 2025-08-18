@@ -90,7 +90,7 @@ def get_experiment_summary(results_dir: Path) -> dict:
                     summary['tools'].add(parts[0])
                     
                 # Look for smell categories
-                smell_keywords = ['hard_coded_secret', 'suspicious_comment', 'weak_cryptography']
+                smell_keywords = ['hard_coded_secret', 'suspicious_comment', 'weak_cryptography', 'use_of_http_without_ssl_tls']
                 for keyword in smell_keywords:
                     if keyword in filename:
                         summary['smells'].add(keyword.replace('_', ' ').title())

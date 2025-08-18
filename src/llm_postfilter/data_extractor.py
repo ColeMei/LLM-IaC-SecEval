@@ -7,6 +7,7 @@ It processes baseline experiment results to prepare data for hybrid evaluation.
 
 import pandas as pd
 import numpy as np
+import re
 from pathlib import Path
 from typing import Dict, List, Set, Tuple, Optional
 import logging
@@ -24,12 +25,14 @@ class GLITCHDetectionExtractor:
         self.target_smells = [
             'Hard-coded secret',
             'Suspicious comment', 
-            'Use of weak cryptography algorithms'
+            'Use of weak cryptography algorithms',
+            'Use of HTTP without SSL/TLS'
         ]
         self.glitch_smells = [
             'hardcoded-secret',
             'suspicious comment', 
-            'weak cryptography algorithms'
+            'weak cryptography algorithms',
+            'use of http'
         ]
         self.smell_mapping = dict(zip(self.target_smells, self.glitch_smells))
         
@@ -169,7 +172,8 @@ class GLITCHDetectionExtractor:
         for smell, detection_list in detections.items():
             if detection_list:  # Only save if we have detections
                 detection_df = pd.DataFrame(detection_list)
-                smell_safe = smell.replace(' ', '_').replace('-', '_').lower()
+                # Sanitize smell for filesystem-safe filenames
+                smell_safe = re.sub(r"[^a-z0-9]+", "_", smell.lower()).strip('_')
                 detail_file = output_dir / f"{iac_tool.lower()}_{smell_safe}_detections.csv"
                 detection_df.to_csv(detail_file, index=False)
                 logger.info(f"Saved {len(detection_list)} detections to {detail_file}")
