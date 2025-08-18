@@ -196,7 +196,7 @@ def main():
     project_root = Path(__file__).parent.parent.parent
     extractor = CodeContextExtractor(project_root)
     
-    # Test with Chef detections
+
     data_dir = project_root / "experiments/llm-postfilter/data"
     chef_secrets_file = data_dir / "chef_hard_coded_secret_detections.csv"
     
