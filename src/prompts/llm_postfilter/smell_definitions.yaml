@@ -49,3 +49,17 @@ Use of weak cryptography algorithms: |
   - Variable names mentioning algorithms without actual implementation
   - Proper use of strong cryptographic libraries and functions
 
+Use of HTTP without SSL/TLS: |
+  Use of HTTP without SSL/TLS refers to configuring or invoking network resources over unencrypted HTTP (http://) rather than encrypted HTTPS (https://). In IaC, this commonly appears in attributes or variables named like url, uri, endpoint, repository, mirrorlist, source, or download locations.
+
+  Key characteristics:
+  - URLs or endpoints beginning with "http://"
+  - Package, repository, or file download sources using HTTP
+  - Service callbacks or webhooks configured with HTTP
+  - Configuration that explicitly disables TLS/SSL for network traffic
+
+  NOT considered use of HTTP without SSL/TLS:
+  - HTTPS URLs (https://)
+  - Loopback or local development endpoints clearly limited to localhost (e.g., http://127.0.0.1, http://localhost)
+  - Comments or documentation strings mentioning http without being used as an active configuration value
+  - Non-network strings that happen to contain "http" but are not used as URLs

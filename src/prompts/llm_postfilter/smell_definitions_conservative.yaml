@@ -61,3 +61,19 @@ Use of weak cryptography algorithms: |
   - digest = sha1(value)              # when used for auth/signature/integrity
   - algorithm = "md5"                # used for hashing secrets or verification
   - ssl_version = "TLSv1.0"          # deprecated TLS version in configuration
+
+Use of HTTP without SSL/TLS: |
+  Use of HTTP without SSL/TLS refers to ANY configuration or code path that uses an unencrypted HTTP URL (http://) rather than encrypted HTTPS (https://).
+
+  Key characteristics (CONSERVATIVE interpretation):
+  - ANY attribute or variable whose value starts with "http://"
+  - Repository, package, mirrorlist, or download sources using HTTP
+  - Endpoints, callbacks, or webhooks configured over HTTP
+  - Parameters or flags that disable TLS/SSL verification or enforcement
+
+  The security risk exists whenever production infrastructure references HTTP, since traffic can be intercepted or modified. Prefer HTTPS everywhere.
+
+  EXCEPTIONS (should NOT be flagged):
+  - Explicit loopback/local-only endpoints: http://localhost, http://127.0.0.1
+  - Clear educational examples in documentation that are not active config values
+  - Strings that mention http but are not used for network communication

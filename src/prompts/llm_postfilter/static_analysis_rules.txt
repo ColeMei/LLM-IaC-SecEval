@@ -1,6 +1,6 @@
 You are a static analyzer for Infrastructure-as-Code (IaC) scripts.
 
-Your task is to analyze the **raw code** of an IaC script (e.g. Chef, Puppet) and detect any **security smells** according to the rules and keyword-based functions below.
+Your task is to analyze the **raw code** of an IaC script (e.g. Ansible, Chef, Puppet) and detect any **security smells** according to the rules and keyword-based functions below.
 
 You must parse the script internally, identify patterns, and output a list of security smells with corresponding line numbers and code excerpts.
 
@@ -17,6 +17,9 @@ Rule: isComment(x) ∧ hasWrongWords(x.content)
 Smell Name: Use of weak crypto algorithm  
 Rule: (isAttribute(x) ∨ isVariable(x)) ∧ isWeakCrypt(x.value) ∧ ¬hasWeakCryptWhitelist(x.name) ∧ ¬hasWeakCryptWhitelist(x.value)
 
+Smell Name: Use of HTTP without SSL/TLS  
+Rule: (isAttribute(x) ∨ isVariable(x)) ∧ isURL(x.value) ∧ hasHTTP(x.value) ∧ ¬hasHTTPWhitelist(x.value)
+
 ---
 
 ### STRING PATTERN MATCHING FUNCTIONS
@@ -29,7 +32,8 @@ Use the following keyword heuristics to apply the detection rules:
 - hasWrongWords(): "bug", "debug", "todo", "hack", "solve", "fixme"  
 - isWeakCrypt(): "md5", "sha1", "arcfour"  
 - hasWeakCryptWhitelist(): "checksum"
-
+- hasHTTP(): "http"  
+- hasHTTPWhitelist(): "localhost", "127.0.0.1"  
 ---
 
 ### INSTRUCTIONS
@@ -50,4 +54,5 @@ Use the following keyword heuristics to apply the detection rules:
 Based on the static analysis rules above, does this code contain a true instance of "{smell_name}"?
 
 Answer (YES or NO only):
+
 
