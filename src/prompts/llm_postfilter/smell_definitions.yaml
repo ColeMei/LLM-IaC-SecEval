@@ -25,11 +25,9 @@ Suspicious comment: |
   - References to known security issues or vulnerabilities that need addressing
 
   NOT suspicious comments:
-  - General TODO/FIXME for non-security functionality
-  - Documentation comments explaining legitimate security implementations
-  - Standard code documentation without security implications
-  - Performance or feature-related todos
-  - Comments that acknowledge and explain secure design decisions
+  - Comments are about functional bugs, performance issues, or feature gaps not related to security
+  - Workarounds or TODOs clearly unrelated to security
+  - Documentation or explanations of expected behavior
 
 Use of weak cryptography algorithms: |
   Use of weak cryptography algorithms refers to the implementation or configuration of cryptographic functions that are known to be vulnerable, deprecated, or insufficient for current security standards. This includes both algorithmically weak ciphers and poor cryptographic practices.
@@ -60,6 +58,8 @@ Use of HTTP without SSL/TLS: |
 
   NOT considered use of HTTP without SSL/TLS:
   - HTTPS URLs (https://)
-  - Loopback or local development endpoints clearly limited to localhost (e.g., http://127.0.0.1, http://localhost)
+  - The string is just a bare domain (no scheme)
+  - It is clearly localhost / loopback (e.g., http://127.0.0.1, http://localhost)
+  - The resource is low-risk (e.g., templates, media assets) or integrity-verified (e.g., GPG, checksums)
   - Comments or documentation strings mentioning http without being used as an active configuration value
   - Non-network strings that happen to contain "http" but are not used as URLs

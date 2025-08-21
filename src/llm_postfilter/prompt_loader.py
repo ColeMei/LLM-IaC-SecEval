@@ -23,6 +23,7 @@ class PromptStyle(Enum):
     """Enumeration of available prompt styles."""
     DEFINITION_BASED = "definition_based"
     STATIC_ANALYSIS_RULES = "static_analysis_rules"
+    HYBRID_APPROACH = "hybrid_approach"
 
 
 """Prompt versions are represented by free-form suffixes in filenames.
@@ -56,16 +57,24 @@ class ExternalPromptLoader:
                 self.version = prompt_template.replace("static_analysis_rules_", "", 1)
             else:
                 raise ValueError(f"Invalid prompt template: {prompt_template}")
+        elif prompt_template.startswith("hybrid_approach"):
+            self.style = PromptStyle.HYBRID_APPROACH
+            if prompt_template == "hybrid_approach":
+                self.version = None
+            elif prompt_template.startswith("hybrid_approach_"):
+                self.version = prompt_template.replace("hybrid_approach_", "", 1)
+            else:
+                raise ValueError(f"Invalid prompt template: {prompt_template}")
         else:
             raise ValueError(f"Invalid prompt template: {prompt_template}")
         
         # Load definitions once during initialization
         self._definitions = self._load_smell_definitions()
         
-        # Load static-analysis rules mapping (smell -> rule) if using that style
+        # Load static-analysis rules mapping (smell -> rule) if using that style or hybrid approach
         self._rules = None
         self._functions = None
-        if self.style == PromptStyle.STATIC_ANALYSIS_RULES:
+        if self.style in [PromptStyle.STATIC_ANALYSIS_RULES, PromptStyle.HYBRID_APPROACH]:
             try:
                 self._rules = self._load_static_rules()
             except FileNotFoundError:
@@ -84,7 +93,11 @@ class ExternalPromptLoader:
             if self.version is None:
                 return self.prompts_dir / "definition_based.txt"
             return self.prompts_dir / f"definition_based_{self.version}.txt"
-        else:
+        elif self.style == PromptStyle.HYBRID_APPROACH:
+            if self.version is None:
+                return self.prompts_dir / "hybrid_approach.txt"
+            return self.prompts_dir / f"hybrid_approach_{self.version}.txt"
+        else:  # STATIC_ANALYSIS_RULES
             if self.version is None:
                 return self.prompts_dir / "static_analysis_rules.txt"
             return self.prompts_dir / f"static_analysis_rules_{self.version}.txt"
@@ -200,6 +213,25 @@ class ExternalPromptLoader:
                 code_snippet=code_snippet,
                 iac_tech=iac_tech_value
             )
+        elif self.style == PromptStyle.HYBRID_APPROACH:
+            # Hybrid approach combines both definition and static analysis rules
+            try:
+                return template.format(
+                    smell_definition=self.get_definition(smell),
+                    smell_name=smell.value,
+                    smell_rule=self.get_rule(smell),
+                    smell_functions=self.get_functions(smell),
+                    code_snippet=code_snippet,
+                    iac_tech=iac_tech_value
+                )
+            except KeyError:
+                # Fallback if static analysis rules are not available
+                return template.format(
+                    smell_definition=self.get_definition(smell),
+                    smell_name=smell.value,
+                    code_snippet=code_snippet,
+                    iac_tech=iac_tech_value
+                )
         else:  # STATIC_ANALYSIS_RULES
             # Include per-smell rule if available
             try:
@@ -249,6 +281,8 @@ class ExternalPromptLoader:
             templates.add("definition_based")
         if (prompts_dir / "static_analysis_rules.txt").exists():
             templates.add("static_analysis_rules")
+        if (prompts_dir / "hybrid_approach.txt").exists():
+            templates.add("hybrid_approach")
 
         # Versioned variants (free-form)
         for file in prompts_dir.glob("definition_based_*.txt"):
@@ -264,6 +298,12 @@ class ExternalPromptLoader:
             version = file.stem.replace("static_analysis_rules_", "", 1)
             if version:
                 templates.add(f"static_analysis_rules_{version}")
+        for file in prompts_dir.glob("hybrid_approach_*.txt"):
+            if file.name == "hybrid_approach.txt":
+                continue
+            version = file.stem.replace("hybrid_approach_", "", 1)
+            if version:
+                templates.add(f"hybrid_approach_{version}")
 
         return sorted(list(templates))
     
@@ -275,6 +315,15 @@ class ExternalPromptLoader:
 Based on the rule-based detection approach, do you understand how to identify {smell.value} using logical conditions and keyword matching functions?
 
 Please respond with "YES" if you understand, or ask for clarification if needed."""
+        elif style == PromptStyle.HYBRID_APPROACH:
+            definition = self.get_definition(smell)
+            return f"""Please confirm your understanding of the hybrid approach for "{smell.value}":
+
+Definition: {definition}
+
+You will also receive static analysis context (rules and functions) to understand why GLITCH flagged the code, then use both the definition and context to make informed decisions.
+
+Do you understand this hybrid approach? Please respond with "YES" if you understand, or ask for clarification if needed."""
         else:
             definition = self.get_definition(smell)
             return f"""Please confirm your understanding of "{smell.value}":

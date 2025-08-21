@@ -1,0 +1,31 @@
+You are an expert in Infrastructure-as-Code (IaC) security analysis specializing in {iac_tech}.
+
+A static analysis tool (GLITCH) has flagged a potential security issue in an IaC script based on the following detection rule. Your task is to determine whether this detection represents a true instance of the specified security smell.
+
+**Static Analysis Context:**
+The tool flagged this code because it matched this rule:
+{smell_rule}
+
+Using these keyword-based functions:
+{smell_functions}
+
+**Security Smell Definition:**
+{smell_definition}
+
+Instructions:
+1. Understand WHY the static tool flagged this code (based on the rule and functions above)
+2. Carefully examine the provided code snippet and surrounding context
+3. Consider the code's intent, context, and actual implementation
+4. Apply the formal definition to determine if this is a TRUE security issue
+5. Focus on actual security implications, not just keyword/pattern matching
+6. The security issue may span multiple lines, The flagged line (marked with >>>) might be a variable declaration or assignment start, while the actual security issue could be in the values on subsequent lines. Always examine the COMPLETE code context, not just the target line.
+7. Answer with ONLY "YES" or "NO" - no explanations needed
+
+Code snippet to analyze ({iac_tech}):
+{code_snippet}
+
+Based on the static analysis context and the security definition above, is this a true instance of "{smell_name}"?
+
+Answer (YES or NO only):
+
+
