@@ -1,83 +1,105 @@
-# Project Structure Guide (Concise)
+# Project Structure Guide
 
-## 1. Directory Roles
+## Directory Organization
 
-- **data/**: Original datasets & ground truth only.
-- **docs/**: All documentation, specs, and guides.
-- **src/**: Source code logic for each methodology (modular, reusable, no scripts).
-- **experiments/**: User-facing interfaces for running experiments (prefer Jupyter notebooks; scripts only for archiving/utilities).
-- **results/**: All experiment outputs, organized by methodology and timestamp.
+- **data/**: Datasets and ground truth labels for all IaC technologies
+- **docs/**: Documentation, technical guides, and project specifications
+- **src/**: Core implementation logic for all methodologies
+- **experiments/**: Interactive notebooks and execution interfaces
+- **results/**: Experiment outputs and evaluation results
 
----
+## Methodology Structure
 
-## 2. Naming & Organization
+### Post-Filter Pipeline
 
-- **Methodology/Feature**: Use `snake_case` for all new methods/features (e.g., `llm_pure`, `llm_postfilter`, `my_new_method`).
-- **src/[method]/**: All core logic for a method/feature.
-- **experiments/[method]/**: Notebooks for running, analyzing, and validating the method. Use scripts only for archiving, cleaning, or automation.
-- **results/[method]/**: All outputs, with subfolders for each experiment run (timestamped).
+- **src/llm_postfilter/**: Core post-filtering logic and evaluation
+- **experiments/llm_postfilter/**: Notebooks for running post-filter experiments
+- **results/llm_postfilter/**: Post-filter experiment results
 
----
+### Model Training Pipeline
 
-## 3. Adding a New Method/Feature
+- **src/model_training/**: Training infrastructure for open-source models
+- **experiments/model_training/**: Training notebooks and data pipeline
+- **results/model_training/**: Trained models and evaluation results
 
-1. **Document**:
-   - Add a spec/guide in `docs/[method].md`.
-2. **Code**:
-   - Add logic in `src/[method]/`.
-3. **Interface**:
-   - Add a Jupyter notebook in `experiments/[method]/notebooks/` as the main user interface.
-   - Use scripts in `experiments/[method]/` only for archiving, cleaning, or batch automation.
-4. **Results**:
-   - Store all outputs in `results/[method]/[timestamp_or_name]/`.
+## Naming Conventions
+
+- **Directories**: Use `snake_case` for all directory names
+- **Files**: Clear, descriptive names reflecting functionality
+- **Methods**: Consistent naming across src/, experiments/, and results/
+- **Technology**: Separate concerns by IaC technology when needed
 
 ---
 
-## 4. Best Practices
+## Adding New Components
 
-- **Prefer Notebooks**: For new features, use notebooks as the main interface for running and analyzing experiments.
-- **Consistent Naming**: Keep directory and file names consistent across `src/`, `experiments/`, and `results/`.
-- **Separation of Concerns**:
-  - Logic in `src/`
-  - User interface in `experiments/`
-  - Outputs in `results/`
-- **Archive & Clean**: Always archive results and clean working directories after each experiment.
+1. **Documentation**: Add specifications in `docs/[component].md`
+2. **Implementation**: Create modular code in `src/[component]/`
+3. **Experiments**: Develop notebooks in `experiments/[component]/`
+4. **Results**: Store outputs in `results/[component]/[timestamp]/`
+
+## Best Practices
+
+- **Modular Design**: Keep components independent and reusable
+- **Clear Separation**: Maintain distinct boundaries between logic, interface, and results
+- **Consistent Structure**: Mirror organization across src/, experiments/, and results/
+- **Reproducibility**: Document all parameters, data sources, and configurations
+- **Version Control**: Tag significant milestones and maintain clean history
 
 ---
 
-## 5. Example Structure
+## Project Structure Example
 
 ```
+data/
+  oracle-dataset-chef/          # Ground truth datasets
+  oracle-dataset-puppet/
+  oracle-dataset-ansible/
+  training-datasets/            # Expanded datasets for training
+    chef/
+    puppet/
+    ansible/
+
 src/
-  llm_pure/
-  llm_postfilter/
-  my_new_method/
+  llm_postfilter/              # Post-filter implementation
+    llm_filter.py              # Core filtering logic
+    llm_client.py              # Multi-provider LLM integration
+    evaluator.py               # Metrics and evaluation
+  model_training/              # Training pipeline
+    data_pipeline.py           # Data processing and preparation
+    trainer.py                 # Model training infrastructure
+    evaluator.py               # Training evaluation
+
 experiments/
-  llm_pure/
-  llm_postfilter/
-  my_new_method/
-    notebooks/
-      01_intro.ipynb
-      02_experiment.ipynb
-    archive_results.py
-    clean_working_dir.py
+  llm_postfilter/              # Post-filter experiments
+    01_data_extraction.ipynb
+    02_llm_experiment.ipynb
+  model_training/              # Training experiments
+    01_data_preparation.ipynb
+    02_model_training.ipynb
+    03_evaluation.ipynb
+
 results/
-  llm_pure/
-  llm_postfilter/
-  my_new_method/
+  llm_postfilter/              # Post-filter results
+    [timestamp]/
+  model_training/              # Training results
+    models/
+    evaluations/
+
 docs/
-  LLM_Pure.md
-  LLM_PostFilter.md
-  My_New_Method.md
+  Research_Roadmap.md          # Project roadmap
+  LLM_PostFilter.md            # Post-filter documentation
+  Model_Training.md            # Training documentation
+  Project_Structure_Guide.md   # This guide
 ```
 
 ---
 
 **Summary:**
 
-- Use notebooks as the main interface for new features.
-- Keep logic, interface, and results strictly separated.
-- Mirror naming and structure across all main directories.
-- Archive and document every experiment.
+- **Clear separation**: Distinct boundaries between implementation, experimentation, and results
+- **Modular design**: Independent components that can be developed and tested separately
+- **Scalable structure**: Organization supports both current work and future expansion
+- **Reproducible research**: Comprehensive documentation and version control
 
-This keeps the project clean, scalable, and easy for anyone to contribute or extend!
+This structure supports both research development and practical implementation while maintaining clarity and organization.

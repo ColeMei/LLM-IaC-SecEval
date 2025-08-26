@@ -203,3 +203,6 @@ secrets.yaml
 # Ollama and LLM specific
 .ollama/
 ollama-models/
+
+# Claude
+CLAUDE.md
