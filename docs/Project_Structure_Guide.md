@@ -18,9 +18,9 @@
 
 ### Model Training Pipeline
 
-- **src/model_training/**: Training infrastructure for open-source models
-- **experiments/model_training/**: Training notebooks and data pipeline
-- **results/model_training/**: Trained models and evaluation results
+- **src/iac_filter_training/**: Training infrastructure for open-source models
+- **experiments/iac_filter_training/**: Training notebooks and data pipeline
+- **results/iac_filter_training/**: Trained models and evaluation results
 
 ## Naming Conventions
 
@@ -65,7 +65,7 @@ src/
     llm_filter.py              # Core filtering logic
     llm_client.py              # Multi-provider LLM integration
     evaluator.py               # Metrics and evaluation
-  model_training/              # Training pipeline
+  iac_filter_training/              # Training pipeline
     data_pipeline.py           # Data processing and preparation
     trainer.py                 # Model training infrastructure
     evaluator.py               # Training evaluation
@@ -74,22 +74,22 @@ experiments/
   llm_postfilter/              # Post-filter experiments
     01_data_extraction.ipynb
     02_llm_experiment.ipynb
-  model_training/              # Training experiments
+  iac_filter_training/              # Training experiments
     01_data_preparation.ipynb
-    02_model_training.ipynb
+    02_iac_filter_training.ipynb
     03_evaluation.ipynb
 
 results/
   llm_postfilter/              # Post-filter results
     [timestamp]/
-  model_training/              # Training results
+  iac_filter_training/              # Training results
     models/
     evaluations/
 
 docs/
   Research_Roadmap.md          # Project roadmap
   LLM_PostFilter.md            # Post-filter documentation
-  Model_Training.md            # Training documentation
+  iac_filter_training.md            # Training documentation
   Project_Structure_Guide.md   # This guide
 ```
 

@@ -146,20 +146,6 @@ $RECYCLE.BIN/
 .Trash-*
 .nfs*
 
-# Project specific
-# Keep results directory structure in git, but ignore its contents by default
-results/*
-!results/.gitignore
-!results/.gitkeep
-!results/llm_pure/
-!results/llm_postfilter/
-results/llm_pure/*
-!results/llm_pure/.gitkeep
-results/llm_postfilter/*
-!results/llm_postfilter/.gitkeep
-
-data/
-
 # Keep docs but ignore specific temp files
 docs/.DS_Store
 docs/*~
@@ -206,3 +192,19 @@ ollama-models/
 
 # Claude
 CLAUDE.md
+
+# Project specific
+# Keep results directory structure in git, but ignore its contents by default
+results/*
+!results/.gitignore
+!results/.gitkeep
+!results/llm_pure/
+!results/llm_postfilter/
+results/llm_pure/*
+!results/llm_pure/.gitkeep
+results/llm_postfilter/*
+!results/llm_postfilter/.gitkeep
+
+data/
+
+experiments/data-analysis/
