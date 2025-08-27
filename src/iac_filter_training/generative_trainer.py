@@ -129,7 +129,7 @@ class GenerativeTrainer:
             warmup_steps=warmup_steps,
             save_steps=save_steps,
             eval_steps=eval_steps,
-            evaluation_strategy="steps",
+            eval_strategy="steps",
             save_strategy="steps",
             logging_steps=10,
             load_best_model_at_end=True,
