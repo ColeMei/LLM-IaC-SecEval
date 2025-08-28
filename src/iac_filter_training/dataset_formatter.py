@@ -116,10 +116,6 @@ class ChefDatasetFormatter:
         formatted_samples = []
         
         for _, row in df.iterrows():
-            # Skip if LLM decision is not YES (we only want TP samples for training)
-            if row.get('llm_decision') != 'YES':
-                continue
-                
             detection_id = row['detection_id']
             prompts_info = prompts_lookup.get(detection_id, {})
             
@@ -127,6 +123,16 @@ class ChefDatasetFormatter:
             file_path = row['file_path']
             if file_path.startswith('epos-'):
                 file_path = file_path[5:]  # Remove epos- prefix
+            
+            # Determine label based on LLM decision
+            llm_decision = row.get('llm_decision', '')
+            if llm_decision == 'YES':
+                label = "TP"  # True Positive
+            elif llm_decision == 'NO':
+                label = "FP"  # False Positive
+            else:
+                logger.warning(f"Unknown LLM decision '{llm_decision}' for detection {detection_id}, skipping")
+                continue
             
             # Format the sample according to template
             sample = {
@@ -137,7 +143,7 @@ class ChefDatasetFormatter:
                 "detection_span": self._extract_detection_span(int(row['line_number'])),
                 "with_context": self._clean_context_snippet(row.get('context_snippet', '')),
                 "with_prompt": prompts_info.get('prompt', ''),
-                "label": "TP",  # All YES decisions are TP
+                "label": label,
                 "confidence": float(row.get('llm_confidence', 0.0)),
                 "source": model_name
             }
@@ -165,7 +171,9 @@ class ChefDatasetFormatter:
             samples = self.format_single_file(csv_path, prompts_path)
             all_samples[smell_name] = samples
             
-            logger.info(f"Generated {len(samples)} TP samples for {smell_name}")
+            tp_count = sum(1 for s in samples if s['label'] == 'TP')
+            fp_count = sum(1 for s in samples if s['label'] == 'FP')
+            logger.info(f"Generated {len(samples)} samples for {smell_name} (TP: {tp_count}, FP: {fp_count})")
         
         return all_samples
     
@@ -189,7 +197,9 @@ class ChefDatasetFormatter:
         all_combined.sort(key=lambda x: x['confidence'], reverse=True)
         
         total_samples = len(all_combined)
-        logger.info(f"Total TP samples: {total_samples}")
+        tp_count = sum(1 for s in all_combined if s['label'] == 'TP')
+        fp_count = sum(1 for s in all_combined if s['label'] == 'FP')
+        logger.info(f"Total samples: {total_samples} (TP: {tp_count}, FP: {fp_count})")
         logger.info(f"Confidence range: {min(s['confidence'] for s in all_combined):.3f} - {max(s['confidence'] for s in all_combined):.3f}")
         
         # Auto-calculate sizes using 8:1 ratio if not specified

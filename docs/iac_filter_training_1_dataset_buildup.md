@@ -89,15 +89,15 @@ Outputs (dir): `experiments/iac_filter_training/data/llm_results/`
 Behavior:
 
 - Loads per-smell `*_llm_filtered.csv` + matching `*_prompts_and_responses.json`
-- Keeps only TP (YES)
 - Emits JSONL with fields: smell, file, content, line, detection_span, with_context, with_prompt, label, confidence, source
 - Sorts by confidence and writes `chef_train.jsonl` (top-N) and `chef_val.jsonl`
+- Automate calcualtion of trian:val size
 
 Run:
 
 ```bash
 # Create train/val JSONL (adjust sizes as needed)
-python src/iac_filter_training/dataset_formatter.py --train-size 640 --val-size 80
+python src/iac_filter_training/dataset_formatter.py
 ```
 
 Outputs (dir): `experiments/iac_filter_training/data/formatted_dataset/`
@@ -105,12 +105,3 @@ Outputs (dir): `experiments/iac_filter_training/data/formatted_dataset/`
 - `chef_train.jsonl`
 - `chef_val.jsonl`
 - `dataset_summary.json`
-
----
-
-### Notes
-
-- Do not modify `src/llm_postfilter/*`; these are reused by import only
-- Use `--json-confidence` to ensure confidence is parsed regardless of provider quirks
-- File matching handles `epos-` filename prefixes automatically
-- Context window is ±5 lines by default and already baked into the CSV
