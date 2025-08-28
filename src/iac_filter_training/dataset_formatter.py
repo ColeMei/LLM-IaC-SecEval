@@ -177,8 +177,8 @@ class ChefDatasetFormatter:
         logger.info(f"Saved {len(samples)} samples to {output_path}")
     
     def save_by_confidence(self, all_samples: Dict[str, List[Dict]], 
-                          train_size: int = 640, val_size: int = 80):
-        """Sort by confidence and split into train/val sets"""
+                          train_size: Optional[int] = None, val_size: Optional[int] = None):
+        """Sort by confidence and split into train/val sets using 8:1 ratio by default"""
         # Combine all samples
         all_combined = []
         for smell_name, samples in all_samples.items():
@@ -188,8 +188,29 @@ class ChefDatasetFormatter:
         # Sort by confidence (highest first)
         all_combined.sort(key=lambda x: x['confidence'], reverse=True)
         
-        logger.info(f"Total TP samples: {len(all_combined)}")
+        total_samples = len(all_combined)
+        logger.info(f"Total TP samples: {total_samples}")
         logger.info(f"Confidence range: {min(s['confidence'] for s in all_combined):.3f} - {max(s['confidence'] for s in all_combined):.3f}")
+        
+        # Auto-calculate sizes using 8:1 ratio if not specified
+        if train_size is None or val_size is None:
+            # Use 8:1 ratio (8/9 for train, 1/9 for val)
+            auto_train_size = int(total_samples * 8 / 9)
+            auto_val_size = total_samples - auto_train_size
+            
+            if train_size is None:
+                train_size = auto_train_size
+            if val_size is None:
+                val_size = auto_val_size
+            
+            logger.info(f"Auto-calculated sizes: train={train_size}, val={val_size} (8:1 ratio)")
+        
+        # Ensure we don't exceed available samples
+        if train_size + val_size > total_samples:
+            logger.warning(f"Requested sizes ({train_size} + {val_size}) exceed available samples ({total_samples})")
+            train_size = int(total_samples * 8 / 9)
+            val_size = total_samples - train_size
+            logger.info(f"Adjusted to: train={train_size}, val={val_size}")
         
         # Split into train/val
         train_samples = all_combined[:train_size]
@@ -237,8 +258,10 @@ def parse_args():
                        help="LLM results directory") 
     parser.add_argument("--output-dir", type=str, default="experiments/iac_filter_training/data/formatted_dataset",
                        help="Output directory for JSONL files")
-    parser.add_argument("--train-size", type=int, default=640, help="Number of training samples")
-    parser.add_argument("--val-size", type=int, default=80, help="Number of validation samples")
+    parser.add_argument("--train-size", type=int, default=None, 
+                       help="Number of training samples (auto-calculated using 8:1 ratio if not specified)")
+    parser.add_argument("--val-size", type=int, default=None, 
+                       help="Number of validation samples (auto-calculated using 8:1 ratio if not specified)")
     return parser.parse_args()
 
 
