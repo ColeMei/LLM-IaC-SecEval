@@ -281,23 +281,48 @@ class AnthropicClient(BaseLLMClient):
 
 
 class OpenAICompatibleClient(BaseLLMClient):
-    """Generic client for OpenAI-compatible HTTP APIs (e.g., vLLM, some third-party providers)."""
+    """Generic client for OpenAI-compatible HTTP APIs (e.g., vLLM, OpenRouter, third-party providers).
 
-    def __init__(self, base_url: str, api_key: Optional[str], model: str):
+    Supports custom headers via environment variables for providers like OpenRouter:
+      - OPENROUTER_REFERRER → sets Referer header
+      - OPENROUTER_TITLE → sets X-Title header
+      - OPENAI_COMPATIBLE_HEADERS → JSON object of extra headers to merge
+    """
+
+    def __init__(self, base_url: str, api_key: Optional[str], model: str, extra_headers: Optional[Dict[str, str]] = None):
         super().__init__()
         if not base_url:
             raise ValueError("base_url is required for OpenAI-compatible client")
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key or os.getenv("OPENAI_COMPATIBLE_API_KEY")
         self.model = model
+        # Prepare optional headers (for OpenRouter and others)
+        headers_from_env: Dict[str, str] = {}
+        referer = os.getenv("OPENROUTER_REFERRER") or os.getenv("OPENROUTER_REFERER")
+        if referer:
+            headers_from_env["Referer"] = referer
+        title = os.getenv("OPENROUTER_TITLE")
+        if title:
+            headers_from_env["X-Title"] = title
+        try:
+            extra_json = os.getenv("OPENAI_COMPATIBLE_HEADERS")
+            if extra_json:
+                headers_from_env.update(json.loads(extra_json))
+        except Exception:
+            logger.warning("Failed to parse OPENAI_COMPATIBLE_HEADERS; expected JSON object")
+        # Allow direct injection via constructor to override env
+        self.extra_headers = {**headers_from_env, **(extra_headers or {})}
         logger.info(f"Initialized OpenAI-compatible client with model: {model} @ {self.base_url}")
 
     def evaluate_detection(self, prompt: str, max_tokens: int = 50) -> LLMResponse:
         start = time.time()
         url = f"{self.base_url}/v1/chat/completions"
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": "application/json", "Accept": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
+        # Merge any extra headers (e.g., OpenRouter's Referer/X-Title)
+        if self.extra_headers:
+            headers.update(self.extra_headers)
         payload = {
             "model": self.model,
             "messages": [
