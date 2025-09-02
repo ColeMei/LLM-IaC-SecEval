@@ -284,9 +284,10 @@ class OpenAICompatibleClient(BaseLLMClient):
     """Generic client for OpenAI-compatible HTTP APIs (e.g., vLLM, OpenRouter, third-party providers).
 
     Supports custom headers via environment variables for providers like OpenRouter:
-      - OPENROUTER_REFERRER → sets Referer header
+      - OPENROUTER_REFERRER → sets HTTP-Referer and Referer headers
       - OPENROUTER_TITLE → sets X-Title header
       - OPENAI_COMPATIBLE_HEADERS → JSON object of extra headers to merge
+      - OPENAI_COMPATIBLE_EXTRA_BODY → JSON object merged into request body
     """
 
     def __init__(self, base_url: str, api_key: Optional[str], model: str, extra_headers: Optional[Dict[str, str]] = None):
@@ -298,9 +299,10 @@ class OpenAICompatibleClient(BaseLLMClient):
         self.model = model
         # Prepare optional headers (for OpenRouter and others)
         headers_from_env: Dict[str, str] = {}
-        referer = os.getenv("OPENROUTER_REFERRER") or os.getenv("OPENROUTER_REFERER")
+        referer = os.getenv("OPENROUTER_REFERRER") or os.getenv("OPENROUTER_REFERER") or os.getenv("OPENROUTER_HTTP_REFERER")
         if referer:
-            headers_from_env["Referer"] = referer
+            headers_from_env["HTTP-Referer"] = referer
+            headers_from_env["Referer"] = referer  # include both for compatibility
         title = os.getenv("OPENROUTER_TITLE")
         if title:
             headers_from_env["X-Title"] = title
@@ -312,6 +314,12 @@ class OpenAICompatibleClient(BaseLLMClient):
             logger.warning("Failed to parse OPENAI_COMPATIBLE_HEADERS; expected JSON object")
         # Allow direct injection via constructor to override env
         self.extra_headers = {**headers_from_env, **(extra_headers or {})}
+        # Optional extra body for provider-specific fields
+        try:
+            extra_body_json = os.getenv("OPENAI_COMPATIBLE_EXTRA_BODY")
+            self.extra_body = json.loads(extra_body_json) if extra_body_json else None
+        except Exception:
+            logger.warning("Failed to parse OPENAI_COMPATIBLE_EXTRA_BODY; expected JSON object")
         logger.info(f"Initialized OpenAI-compatible client with model: {model} @ {self.base_url}")
 
     def evaluate_detection(self, prompt: str, max_tokens: int = 50) -> LLMResponse:
@@ -332,6 +340,13 @@ class OpenAICompatibleClient(BaseLLMClient):
             "temperature": 0.0,
             "max_tokens": max_tokens,
         }
+        # Merge any provider-specific extra body
+        if getattr(self, "extra_body", None):
+            try:
+                # shallow merge; extra fields can override defaults if needed
+                payload.update(self.extra_body)
+            except Exception:
+                logger.warning("Failed merging OPENAI_COMPATIBLE_EXTRA_BODY into payload")
         for attempt in range(self.max_retries):
             try:
                 self._enforce_rate_limit()
