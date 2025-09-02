@@ -2,7 +2,7 @@
 LLM Clients for Security Smell Post-Filtering
 
 This module provides provider-agnostic interfaces and concrete clients for evaluating
-GLITCH detections using multiple LLM providers (OpenAI, Ollama, Anthropic, and
+GLITCH detections using multiple LLM providers (OpenAI, Ollama, Anthropic, Grok/xAI, and
 OpenAI-compatible endpoints).
 """
 
@@ -56,6 +56,7 @@ class Provider(Enum):
     OLLAMA = "ollama"
     ANTHROPIC = "anthropic"
     OPENAI_COMPATIBLE = "openai_compatible"  # Generic HTTP client for OpenAI-style APIs
+    GROK = "grok"  # xAI Grok via OpenAI-compatible API
 
 
 SYSTEM_PROMPT = (
@@ -325,6 +326,27 @@ class OpenAICompatibleClient(BaseLLMClient):
                     return LLMResponse(LLMDecision.ERROR, "", processing_time=time.time() - start, error_message=str(e))
 
 
+class GrokClient(OpenAICompatibleClient):
+    """Client for xAI Grok models via OpenAI-compatible chat completions API.
+
+    Defaults:
+      - base_url: https://api.x.ai/v1
+      - model: grok-2-latest
+      - api key env: XAI_API_KEY (fallback: GROK_API_KEY)
+    """
+
+    def __init__(self, api_key: Optional[str] = None, model: str = "grok-2-latest", base_url: Optional[str] = None):
+        # Accept overrides via args or env; ensure trailing /v1 present
+        raw_base = base_url or os.getenv("GROK_BASE_URL") or os.getenv("XAI_BASE_URL") or "https://api.x.ai"
+        base_with_version = raw_base.rstrip("/")
+        if not base_with_version.endswith("/v1"):
+            base_with_version = base_with_version + "/v1"
+        xai_key = api_key or os.getenv("XAI_API_KEY") or os.getenv("GROK_API_KEY")
+        super().__init__(base_url=base_with_version, api_key=xai_key, model=model)
+        self.model = model
+        logger.info(f"Initialized Grok (xAI) client with model: {model} @ {base_with_version}")
+
+
 def create_llm_client(
     provider: str = Provider.OPENAI.value,
     model: str = "gpt-4o-mini",
@@ -338,6 +360,8 @@ def create_llm_client(
         return OllamaClient(model=model, base_url=base_url)
     if prov == Provider.ANTHROPIC:
         return AnthropicClient(api_key=api_key, model=model)
+    if prov == Provider.GROK:
+        return GrokClient(api_key=api_key, model=model, base_url=base_url)
     if prov == Provider.OPENAI_COMPATIBLE:
         if not base_url:
             raise ValueError("base_url is required for openai_compatible provider")
