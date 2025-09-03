@@ -30,6 +30,12 @@ except ImportError:
     ANTHROPIC_AVAILABLE = False
     Anthropic = None
 
+try:
+    from xai_sdk import Client
+    XAI_AVAILABLE = True
+except ImportError:
+    XAI_AVAILABLE = False
+    Client = None
 
 logger = logging.getLogger(__name__)
 
@@ -55,8 +61,8 @@ class Provider(Enum):
     OPENAI = "openai"
     OLLAMA = "ollama"
     ANTHROPIC = "anthropic"
-    OPENAI_COMPATIBLE = "openai_compatible"  # Generic HTTP client for OpenAI-style APIs
-    GROK = "grok"  # xAI Grok via OpenAI-compatible API
+    GROK = "grok"
+    OPENAI_COMPATIBLE = "openai_compatible"
 
 
 SYSTEM_PROMPT = (
@@ -280,6 +286,60 @@ class AnthropicClient(BaseLLMClient):
                     return LLMResponse(LLMDecision.ERROR, "", processing_time=time.time() - start, error_message=str(e))
 
 
+class GrokClient(BaseLLMClient):
+    """Client for xAI Grok models using native xAI SDK.
+
+    Defaults:
+      - model: grok-code-fast-1
+      - api key env: XAI_API_KEY (fallback: GROK_API_KEY)
+    """
+
+    def __init__(self, api_key: Optional[str] = None, model: str = "grok-code-fast-1", base_url: Optional[str] = None):
+        super().__init__()
+        if not XAI_AVAILABLE:
+            raise ImportError("xai_sdk not installed. Run: pip install xai_sdk")
+        self.model = model
+        self.api_key = api_key or os.getenv("XAI_API_KEY") or os.getenv("GROK_API_KEY")
+        if not self.api_key:
+            raise ValueError("Grok API key required. Set XAI_API_KEY or GROK_API_KEY or pass api_key")
+        self.client = Client(api_key=self.api_key)
+        self.base_url = base_url or os.getenv("GROK_BASE_URL") or os.getenv("XAI_BASE_URL") or "https://api.x.ai"
+        logger.info(f"Initialized Grok (xAI) client with model: {model} @ {self.base_url}")
+
+    def evaluate_detection(self, prompt: str, max_tokens: int = 50) -> LLMResponse:
+        start = time.time()
+        for attempt in range(self.max_retries):
+            try:
+                self._enforce_rate_limit()
+                
+                # Create chat session with system prompt and user message
+                chat = self.client.chat.create(model=self.model)
+                chat.append({"role": "system", "content": SYSTEM_PROMPT})
+                chat.append({"role": "user", "content": prompt})
+                
+                # Get response
+                response = chat.sample()
+                content = response.content.strip()
+                decision = _parse_decision_from_text(content)
+                
+                # Note: xAI SDK doesn't provide token usage in the same way
+                # We'll estimate based on input/output length
+                estimated_tokens = len(prompt.split()) + len(content.split())
+                
+                return LLMResponse(
+                    decision=decision,
+                    raw_response=content,
+                    processing_time=time.time() - start,
+                    tokens_used=estimated_tokens,
+                )
+            except Exception as e:
+                logger.warning(f"Grok call attempt {attempt + 1} failed: {e}")
+                if attempt < self.max_retries - 1:
+                    time.sleep(self.retry_delay * (2 ** attempt))
+                else:
+                    return LLMResponse(LLMDecision.ERROR, "", processing_time=time.time() - start, error_message=str(e))
+
+
 class OpenAICompatibleClient(BaseLLMClient):
     """Generic client for OpenAI-compatible HTTP APIs (e.g., vLLM, OpenRouter, third-party providers).
 
@@ -365,26 +425,6 @@ class OpenAICompatibleClient(BaseLLMClient):
                 else:
                     return LLMResponse(LLMDecision.ERROR, "", processing_time=time.time() - start, error_message=str(e))
 
-
-class GrokClient(OpenAICompatibleClient):
-    """Client for xAI Grok models via OpenAI-compatible chat completions API.
-
-    Defaults:
-      - base_url: https://api.x.ai/v1
-      - model: grok-2-latest
-      - api key env: XAI_API_KEY (fallback: GROK_API_KEY)
-    """
-
-    def __init__(self, api_key: Optional[str] = None, model: str = "grok-2-latest", base_url: Optional[str] = None):
-        # Accept overrides via args or env; ensure trailing /v1 present
-        raw_base = base_url or os.getenv("GROK_BASE_URL") or os.getenv("XAI_BASE_URL") or "https://api.x.ai"
-        base_with_version = raw_base.rstrip("/")
-        if not base_with_version.endswith("/v1"):
-            base_with_version = base_with_version + "/v1"
-        xai_key = api_key or os.getenv("XAI_API_KEY") or os.getenv("GROK_API_KEY")
-        super().__init__(base_url=base_with_version, api_key=xai_key, model=model)
-        self.model = model
-        logger.info(f"Initialized Grok (xAI) client with model: {model} @ {base_with_version}")
 
 
 def create_llm_client(
