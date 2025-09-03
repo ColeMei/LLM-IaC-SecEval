@@ -311,11 +311,16 @@ class GrokClient(BaseLLMClient):
         for attempt in range(self.max_retries):
             try:
                 self._enforce_rate_limit()
-                
-                # Create chat session with system prompt and user message
+                # Use xAI SDK typed message helpers per official docs
+                try:
+                    from xai_sdk.chat import user as xai_user, system as xai_system
+                except Exception as import_err:
+                    raise RuntimeError(f"Failed to import xai_sdk.chat helpers: {import_err}")
+
+                # Create chat session and append typed messages
                 chat = self.client.chat.create(model=self.model)
-                chat.append({"role": "system", "content": SYSTEM_PROMPT})
-                chat.append({"role": "user", "content": prompt})
+                chat.append(xai_system(SYSTEM_PROMPT))
+                chat.append(xai_user(prompt))
                 
                 # Get response
                 response = chat.sample()
