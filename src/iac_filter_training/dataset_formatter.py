@@ -9,7 +9,7 @@ Maps available data to the specified template structure.
 import json
 import pandas as pd
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Set
 import argparse
 import logging
 import re
@@ -197,17 +197,26 @@ class IaCDatasetFormatter:
     
     def save_train_val_split(self, all_samples: Dict[str, List[Dict]],
                            train_size: Optional[int] = None, val_size: Optional[int] = None):
-        """Split samples into train/val sets using 8:1 ratio by default"""
+        """Split samples into train/val sets using 8:1 ratio by default, excluding test files"""
         # Combine all samples
         all_combined = []
         for smell_name, samples in all_samples.items():
             for sample in samples:
                 all_combined.append(sample)
 
+        # Filter out test files to prevent data leakage
+        test_files = self._load_test_files()
+        if test_files:
+            logger.info(f"Filtering out {len(test_files)} test files to prevent data leakage...")
+            original_count = len(all_combined)
+            all_combined = [sample for sample in all_combined if sample['file'] not in test_files]
+            filtered_count = original_count - len(all_combined)
+            logger.info(f"Removed {filtered_count} samples from test files")
+
         total_samples = len(all_combined)
         tp_count = sum(1 for s in all_combined if s['label'] == 'TP')
         fp_count = sum(1 for s in all_combined if s['label'] == 'FP')
-        logger.info(f"Total samples: {total_samples} (TP: {tp_count}, FP: {fp_count})")
+        logger.info(f"Final samples for train/val: {total_samples} (TP: {tp_count}, FP: {fp_count})")
         
         # Auto-calculate sizes using 8:1 ratio if not specified
         if train_size is None or val_size is None:
@@ -241,25 +250,94 @@ class IaCDatasetFormatter:
         val_path = self.output_dir / f"{self.iac_tech}_val.jsonl"
         self.save_jsonl(val_samples, val_path)
         
-        # Save summary
+        # Save train/val summary
         summary = {
+            "iac_technology": self.iac_tech,
             "total_samples": len(all_combined),
             "train_samples": len(train_samples),
             "val_samples": len(val_samples),
             "smell_distribution": {}
         }
-        
+
         # Count samples per smell
         for sample in all_combined:
             smell = sample['smell']
             summary["smell_distribution"][smell] = summary["smell_distribution"].get(smell, 0) + 1
-        
+
         summary_path = self.output_dir / "dataset_summary.json"
         with open(summary_path, 'w') as f:
             json.dump(summary, f, indent=2)
+
+        # Create test summary for this IaC technology (if test data exists)
+        test_file = self.data_dir / f"{self.iac_tech}_test.jsonl"
+        if test_file.exists():
+            self._create_iac_test_summary(test_file)
         
         logger.info(f"Dataset summary saved to {summary_path}")
         return train_path, val_path, summary_path
+
+    def _create_iac_test_summary(self, test_file_path: Path):
+        """Create a test summary specific to this IaC technology."""
+        tp_count = 0
+        fp_count = 0
+        smell_counts = {}
+
+        with open(test_file_path, 'r') as f:
+            for line in f:
+                if line.strip():
+                    data = json.loads(line.strip())
+                    label = data.get('label', '')
+
+                    if label == 'TP':
+                        tp_count += 1
+                    elif label == 'FP':
+                        fp_count += 1
+
+                    smell = data.get('smell', '')
+                    if smell:
+                        smell_counts[smell] = smell_counts.get(smell, 0) + 1
+
+        total_samples = tp_count + fp_count
+        precision = round(tp_count / total_samples, 3) if total_samples > 0 else 0
+
+        test_summary = {
+            "iac_technology": self.iac_tech,
+            "total_test_samples": total_samples,
+            "test_tp_samples": tp_count,
+            "test_fp_samples": fp_count,
+            "test_precision": precision,
+            "smell_distribution": smell_counts,
+            "dataset_info": f"{self.iac_tech.upper()} test dataset statistics"
+        }
+
+        test_summary_path = self.output_dir / "test_summary.json"
+        with open(test_summary_path, 'w') as f:
+            json.dump(test_summary, f, indent=2)
+
+        logger.info(f"IaC-specific test summary saved to {test_summary_path}")
+        logger.info(f"  - {total_samples} samples (TP: {tp_count}, FP: {fp_count}, Precision: {precision:.1%})")
+
+    def _load_test_files(self) -> Set[str]:
+        """Load file names from test dataset to exclude from train/val sets."""
+        test_files = set()
+        test_file_path = self.output_dir / f"{self.iac_tech}_test.jsonl"
+
+        if test_file_path.exists():
+            try:
+                with open(test_file_path, 'r') as f:
+                    for line in f:
+                        if line.strip():
+                            data = json.loads(line.strip())
+                            file_path = data.get('file', '')
+                            if file_path:
+                                test_files.add(file_path)
+                logger.info(f"Loaded {len(test_files)} test files to exclude from train/val")
+            except Exception as e:
+                logger.warning(f"Could not load test files for filtering: {e}")
+        else:
+            logger.info(f"No test file found at {test_file_path}, proceeding without filtering")
+
+        return test_files
 
 
 def parse_args():
@@ -300,11 +378,16 @@ def main():
     train_path, val_path, summary_path = formatter.save_train_val_split(
         all_samples, args.train_size, args.val_size
     )
-    
+
     print(f"\n{args.iac_tech.title()} dataset formatting complete!")
     print(f"Train: {train_path}")
     print(f"Val: {val_path}")
-    print(f"Summary: {summary_path}")
+    print(f"Dataset Summary: {summary_path}")
+
+    # Check if test summary was created
+    test_summary_path = summary_path.parent / "test_summary.json"
+    if test_summary_path.exists():
+        print(f"Test Summary: {test_summary_path}")
 
 
 if __name__ == "__main__":
