@@ -25,8 +25,8 @@ class IaCPseudoLabelExtractor:
         self.project_root = Path(project_root)
         self.iac_tech = iac_tech.lower()
         self.data_dir = self.project_root / "data"
-        # Updated to match the new consistent naming: oracle-dataset_1000_{iac_tech}
-        self.iac_files_dir = self.data_dir / "iac_filter_training" / f"oracle-dataset_1000_{self.iac_tech}"
+        # Updated to match the new consistent naming: oracle-dataset-{iac_tech}
+        self.iac_files_dir = self.data_dir / "iac_filter_training" / f"oracle-dataset-{self.iac_tech}"
         # Use the new organized structure
         self.iac_data_dir = self.data_dir / "iac_filter_training" / self.iac_tech
 

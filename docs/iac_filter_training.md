@@ -4,9 +4,9 @@ Objective: Build train/validation/test datasets for Chef, Ansible, and Puppet us
 
 #### Pipeline Steps
 
-1. Collect unlabeled IaC scripts (from GitHub)
+1. Collect unlabeled IaC scripts
 
-- Target: ~1000+ scripts per technology (stored under `data/iac_filter_training/oracle-dataset_1000_{iac_tech}`).
+- Target: ~2000+ scripts per technology (stored under `data/iac_filter_training/oracle-dataset-{iac_tech}`).
 
 2. Run GLITCH → collect raw detections
 
@@ -15,7 +15,7 @@ Objective: Build train/validation/test datasets for Chef, Ansible, and Puppet us
 
 3. Run LLM post-filter → pseudo-label TP/FP decisions
 
-- Default: `gpt-4o-mini` for smoke tests; switch to Claude 3.7 for production
+- Default: `gpt-4o-mini` for smoke tests; switch to Claude 4.0 for production
 - Prompt style: `static_analysis_rules`
 - Output: per-smell CSVs with decisions, plus prompt/response logs
 
