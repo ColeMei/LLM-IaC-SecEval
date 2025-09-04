@@ -144,7 +144,6 @@ class ChefDatasetFormatter:
                 "with_context": self._clean_context_snippet(row.get('context_snippet', '')),
                 "with_prompt": prompts_info.get('prompt', ''),
                 "label": label,
-                "confidence": float(row.get('llm_confidence', 0.0)),
                 "source": model_name
             }
             
@@ -184,23 +183,19 @@ class ChefDatasetFormatter:
                 f.write(json.dumps(sample) + '\n')
         logger.info(f"Saved {len(samples)} samples to {output_path}")
     
-    def save_by_confidence(self, all_samples: Dict[str, List[Dict]], 
-                          train_size: Optional[int] = None, val_size: Optional[int] = None):
-        """Sort by confidence and split into train/val sets using 8:1 ratio by default"""
+    def save_train_val_split(self, all_samples: Dict[str, List[Dict]],
+                           train_size: Optional[int] = None, val_size: Optional[int] = None):
+        """Split samples into train/val sets using 8:1 ratio by default"""
         # Combine all samples
         all_combined = []
         for smell_name, samples in all_samples.items():
             for sample in samples:
                 all_combined.append(sample)
-        
-        # Sort by confidence (highest first)
-        all_combined.sort(key=lambda x: x['confidence'], reverse=True)
-        
+
         total_samples = len(all_combined)
         tp_count = sum(1 for s in all_combined if s['label'] == 'TP')
         fp_count = sum(1 for s in all_combined if s['label'] == 'FP')
         logger.info(f"Total samples: {total_samples} (TP: {tp_count}, FP: {fp_count})")
-        logger.info(f"Confidence range: {min(s['confidence'] for s in all_combined):.3f} - {max(s['confidence'] for s in all_combined):.3f}")
         
         # Auto-calculate sizes using 8:1 ratio if not specified
         if train_size is None or val_size is None:
@@ -239,11 +234,6 @@ class ChefDatasetFormatter:
             "total_samples": len(all_combined),
             "train_samples": len(train_samples),
             "val_samples": len(val_samples),
-            "confidence_stats": {
-                "train_mean": sum(s['confidence'] for s in train_samples) / len(train_samples) if train_samples else 0,
-                "val_mean": sum(s['confidence'] for s in val_samples) / len(val_samples) if val_samples else 0,
-                "overall_mean": sum(s['confidence'] for s in all_combined) / len(all_combined) if all_combined else 0
-            },
             "smell_distribution": {}
         }
         
@@ -268,9 +258,9 @@ def parse_args():
                        help="LLM results directory") 
     parser.add_argument("--output-dir", type=str, default="experiments/iac_filter_training/data/formatted_dataset",
                        help="Output directory for JSONL files")
-    parser.add_argument("--train-size", type=int, default=None, 
+    parser.add_argument("--train-size", type=int, default=None,
                        help="Number of training samples (auto-calculated using 8:1 ratio if not specified)")
-    parser.add_argument("--val-size", type=int, default=None, 
+    parser.add_argument("--val-size", type=int, default=None,
                        help="Number of validation samples (auto-calculated using 8:1 ratio if not specified)")
     return parser.parse_args()
 
@@ -291,8 +281,8 @@ def main():
         logger.error("No samples found to format!")
         return
     
-    # Save by confidence
-    train_path, val_path, summary_path = formatter.save_by_confidence(
+    # Save train/val split
+    train_path, val_path, summary_path = formatter.save_train_val_split(
         all_samples, args.train_size, args.val_size
     )
     

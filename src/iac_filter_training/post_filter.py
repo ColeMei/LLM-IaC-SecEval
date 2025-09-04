@@ -57,37 +57,6 @@ def _infer_iac_tech(file_path: str) -> str:
     return 'IaC'
 
 
-def _parse_confidence_from_text(response_text: str) -> Optional[float]:
-    # Try JSON
-    try:
-        data = json.loads(response_text)
-        conf = data.get("confidence")
-        if conf is None:
-            return None
-        val = float(conf)
-        if val < 0:
-            val = 0.0
-        if val > 1:
-            val = 1.0
-        return val
-    except Exception:
-        pass
-    # Fallback: confidence: 0.8 patterns
-    lower = (response_text or "").lower()
-    for token in ["confidence:", "confidence=", "conf:"]:
-        if token in lower:
-            try:
-                tail = lower.split(token, 1)[1]
-                raw = tail.strip().split()[0].strip().strip(",")
-                val = float(raw)
-                if val < 0:
-                    val = 0.0
-                if val > 1:
-                    val = 1.0
-                return val
-            except Exception:
-                continue
-    return None
 
 
 class ChefLLMPostFilter:
@@ -102,7 +71,6 @@ class ChefLLMPostFilter:
         max_samples: Optional[int] = None,
         data_dir: Optional[Path] = None,
         results_dir: Optional[Path] = None,
-        json_confidence: bool = False,
     ):
         self.project_root = Path(project_root)
         self.data_dir = Path(data_dir) if data_dir else (self.project_root / "experiments" / "iac_filter_training" / "data")
@@ -116,9 +84,7 @@ class ChefLLMPostFilter:
         self.client = create_llm_client(provider=provider, model=model, api_key=api_key, base_url=base_url)
         # Optional cap for sanity checks
         self.max_samples = max_samples
-        # Enforce JSON decision+confidence format in prompt
-        self.json_confidence = json_confidence
-        logger.info(f"Post-filter using provider={provider}, model={model}, template={prompt_template}, max_samples={max_samples}, json_confidence={json_confidence}")
+        logger.info(f"Post-filter using provider={provider}, model={model}, template={prompt_template}, max_samples={max_samples}")
         logger.info(f"Data dir: {self.data_dir} | Results dir: {self.results_dir}")
 
     def _load_detection_file(self, path: Path) -> pd.DataFrame:
@@ -142,13 +108,7 @@ class ChefLLMPostFilter:
                 continue
             iac_tech = str(row.get('iac_tool') or _infer_iac_tech(str(row.get('file_path', ''))))
             # Build prompt via ExternalPromptLoader
-            base_prompt = self.prompt_loader.create_prompt(smell, str(row.get('context_snippet', '')), iac_tech)
-            if self.json_confidence:
-                # Enforce structured JSON output and confidence
-                suffix = "\n\nReturn ONLY JSON: {\"decision\":\"YES|NO\",\"confidence\":0.0-1.0}"
-                prompt = f"{base_prompt}{suffix}"
-            else:
-                prompt = base_prompt
+            prompt = self.prompt_loader.create_prompt(smell, str(row.get('context_snippet', '')), iac_tech)
             prompts.append((idx, str(row['detection_id']), prompt))
         logger.info(f"Prepared {len(prompts)} prompts")
         return prompts
@@ -168,7 +128,6 @@ class ChefLLMPostFilter:
     def _merge_results(self, df: pd.DataFrame, results: Dict[int, LLMResponse]) -> pd.DataFrame:
         out = df.copy()
         out['llm_decision'] = ""
-        out['llm_confidence'] = np.nan
         out['llm_raw_response'] = ""
         out['llm_processing_time'] = np.nan
         out['llm_error'] = ""
@@ -178,11 +137,6 @@ class ChefLLMPostFilter:
             if idx not in out.index:
                 continue
             out.at[idx, 'llm_decision'] = resp.decision.value
-            # Always try to parse confidence from raw response when using JSON mode
-            conf = resp.confidence_score
-            if conf is None or self.json_confidence:
-                conf = _parse_confidence_from_text(resp.raw_response or "")
-            out.at[idx, 'llm_confidence'] = conf if conf is not None else np.nan
             out.at[idx, 'llm_raw_response'] = resp.raw_response
             out.at[idx, 'llm_processing_time'] = resp.processing_time or 0
             out.at[idx, 'llm_error'] = resp.error_message or ""
@@ -203,7 +157,6 @@ class ChefLLMPostFilter:
         decision_counts = filtered_df['llm_decision'].value_counts().to_dict()
         kept = int(filtered_df['keep_detection'].sum())
         total = int(len(filtered_df))
-        conf_series = pd.to_numeric(filtered_df['llm_confidence'], errors='coerce').dropna()
         summary = {
             "model": self.client.model,
             "prompt_style": self.prompt_template,
@@ -211,13 +164,6 @@ class ChefLLMPostFilter:
             "kept": kept,
             "filtered_out": total - kept,
             "decisions": decision_counts,
-            "confidence": {
-                "count": int(conf_series.count()),
-                "mean": float(conf_series.mean()) if not conf_series.empty else 0.0,
-                "min": float(conf_series.min()) if not conf_series.empty else 0.0,
-                "max": float(conf_series.max()) if not conf_series.empty else 0.0,
-                "median": float(conf_series.median()) if not conf_series.empty else 0.0,
-            },
         }
         summary_path = self.results_dir / f"{base}_llm_summary.json"
         with open(summary_path, 'w', encoding='utf-8') as f:
@@ -239,7 +185,6 @@ class ChefLLMPostFilter:
                 "prompt": prompt,
                 "response": {
                     "decision": resp.decision.value if resp else "",
-                    "confidence": (resp.confidence_score if resp else None),
                     "raw": (resp.raw_response if resp else ""),
                     "error": (resp.error_message if resp else ""),
                     "processing_time": (resp.processing_time if resp else None)
@@ -278,7 +223,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--data-dir", type=str, default=None, help="Override input data directory")
     parser.add_argument("--results-dir", type=str, default=None, help="Override output results directory")
     parser.add_argument("--input", type=str, default=None, help="Run on a single context CSV file instead of all")
-    parser.add_argument("--json-confidence", action="store_true", help="Append strict JSON instruction to prompt and parse confidence from JSON")
     return parser.parse_args()
 
 
@@ -299,7 +243,6 @@ def main():
         max_samples=args.max_samples,
         data_dir=Path(args.data_dir) if args.data_dir else None,
         results_dir=Path(args.results_dir) if args.results_dir else None,
-        json_confidence=args.json_confidence,
     )
 
     try:
