@@ -1,7 +1,8 @@
 """
-Dataset Formatter for Chef Pseudo-Labeled Data
+Dataset Formatter for IaC Pseudo-Labeled Data
 
 Converts LLM post-filter results into JSONL/HuggingFace format for training.
+Supports Chef, Ansible, and Puppet IaC technologies.
 Maps available data to the specified template structure.
 """
 
@@ -17,11 +18,21 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
-class ChefDatasetFormatter:
-    def __init__(self, data_dir: Path, results_dir: Path, output_dir: Path):
+class IaCDatasetFormatter:
+    def __init__(self, data_dir: Path, results_dir: Path, output_dir: Path, iac_tech: str = "chef"):
         self.data_dir = Path(data_dir)
-        self.results_dir = Path(results_dir) 
+        self.results_dir = Path(results_dir)
         self.output_dir = Path(output_dir)
+        self.iac_tech = iac_tech.lower()
+
+        # Use the new organized structure by default
+        if str(data_dir) == "experiments/iac_filter_training/data":
+            self.data_dir = Path(data_dir) / self.iac_tech
+        if str(results_dir) == "experiments/iac_filter_training/data/llm_results":
+            self.results_dir = Path(data_dir) / self.iac_tech / "llm_results"
+        if str(output_dir) == "experiments/iac_filter_training/data/formatted_dataset":
+            self.output_dir = Path(data_dir) / self.iac_tech / "formatted_dataset"
+
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
     def _extract_detection_span(self, line_number: int, context_lines: int = 5) -> List[int]:
@@ -155,8 +166,9 @@ class ChefDatasetFormatter:
         """Format all LLM filtered files into JSONL format"""
         all_samples = {}
         
-        # Find all LLM filtered CSV files
-        for csv_path in self.results_dir.glob("*_llm_filtered.csv"):
+        # Find all LLM filtered CSV files for the specific IaC technology
+        pattern = f"{self.iac_tech}_*_llm_filtered.csv"
+        for csv_path in self.results_dir.glob(pattern):
             smell_name = csv_path.stem.replace('_llm_filtered', '')
             
             # Find corresponding prompts file
@@ -222,11 +234,11 @@ class ChefDatasetFormatter:
         val_samples = all_combined[train_size:train_size + val_size]
         
         # Save train set
-        train_path = self.output_dir / "chef_train.jsonl"
+        train_path = self.output_dir / f"{self.iac_tech}_train.jsonl"
         self.save_jsonl(train_samples, train_path)
-        
-        # Save val set  
-        val_path = self.output_dir / "chef_val.jsonl"
+
+        # Save val set
+        val_path = self.output_dir / f"{self.iac_tech}_val.jsonl"
         self.save_jsonl(val_samples, val_path)
         
         # Save summary
@@ -251,11 +263,13 @@ class ChefDatasetFormatter:
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Format Chef pseudo-labeled data into JSONL")
-    parser.add_argument("--data-dir", type=str, default="experiments/iac_filter_training/data", 
+    parser = argparse.ArgumentParser(description="Format IaC pseudo-labeled data into JSONL")
+    parser.add_argument("--iac-tech", type=str, default="chef", choices=["chef", "ansible", "puppet"],
+                       help="IaC technology to process")
+    parser.add_argument("--data-dir", type=str, default="experiments/iac_filter_training/data",
                        help="Input data directory")
     parser.add_argument("--results-dir", type=str, default="experiments/iac_filter_training/data/llm_results",
-                       help="LLM results directory") 
+                       help="LLM results directory")
     parser.add_argument("--output-dir", type=str, default="experiments/iac_filter_training/data/formatted_dataset",
                        help="Output directory for JSONL files")
     parser.add_argument("--train-size", type=int, default=None,
@@ -268,10 +282,11 @@ def parse_args():
 def main():
     args = parse_args()
     
-    formatter = ChefDatasetFormatter(
+    formatter = IaCDatasetFormatter(
         data_dir=args.data_dir,
-        results_dir=args.results_dir, 
-        output_dir=args.output_dir
+        results_dir=args.results_dir,
+        output_dir=args.output_dir,
+        iac_tech=args.iac_tech
     )
     
     # Format all files
@@ -286,9 +301,9 @@ def main():
         all_samples, args.train_size, args.val_size
     )
     
-    print(f"\nDataset formatting complete!")
+    print(f"\n{args.iac_tech.title()} dataset formatting complete!")
     print(f"Train: {train_path}")
-    print(f"Val: {val_path}") 
+    print(f"Val: {val_path}")
     print(f"Summary: {summary_path}")
 
 

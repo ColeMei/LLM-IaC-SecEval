@@ -1,9 +1,10 @@
 """
-Chef Pseudo-Label Data Extractor for IaC Filter Training
+IaC Pseudo-Label Data Extractor for IaC Filter Training
 
-This module extracts GLITCH detections from the 1000-script Chef dataset for pseudo-labeling.
+This module extracts GLITCH detections from IaC datasets for pseudo-labeling.
 It processes detections without ground truth labels and prepares them for LLM post-filtering.
-Also wraps each detection with code context from the oracle-dataset_1000 files.
+Supports Chef, Ansible, and Puppet IaC technologies.
+Also wraps each detection with code context from the respective dataset files.
 """
 
 import pandas as pd
@@ -17,33 +18,58 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class ChefPseudoLabelExtractor:
-    """Extracts GLITCH detections from 1000-script Chef dataset for pseudo-labeling."""
-    
-    def __init__(self, project_root: Path):
+class IaCPseudoLabelExtractor:
+    """Extracts GLITCH detections from IaC datasets for pseudo-labeling."""
+
+    def __init__(self, project_root: Path, iac_tech: str = "chef"):
         self.project_root = Path(project_root)
+        self.iac_tech = iac_tech.lower()
         self.data_dir = self.project_root / "data"
-        self.chef_files_dir = self.data_dir / "iac_filter_training" / "oracle-dataset_1000"
-        
-        # Target security smells for pseudo-labeling
+        # Updated to match the new consistent naming: oracle-dataset_1000_{iac_tech}
+        self.iac_files_dir = self.data_dir / "iac_filter_training" / f"oracle-dataset_1000_{self.iac_tech}"
+        # Use the new organized structure
+        self.iac_data_dir = self.data_dir / "iac_filter_training" / self.iac_tech
+
+        # Target security smells for pseudo-labeling (same for all IaC technologies)
         self.target_smells = [
             'hardcoded-secret',
-            'suspicious comment', 
+            'suspicious comment',
             'weak cryptography algorithms',
             'use of http'
         ]
-        
+
         # Mapping for display names
         self.smell_display_names = {
             'hardcoded-secret': 'Hard-coded secret',
             'suspicious comment': 'Suspicious comment',
-            'weak cryptography algorithms': 'Use of weak cryptography algorithms', 
+            'weak cryptography algorithms': 'Use of weak cryptography algorithms',
             'use of http': 'Use of HTTP without SSL/TLS'
+        }
+
+        # IaC technology specific configurations
+        self.iac_config = {
+            'chef': {
+                'file_extensions': ['.rb'],
+                'glitch_file': 'GLITCH-chef-oracle.csv'
+            },
+            'ansible': {
+                'file_extensions': ['.yml', '.yaml'],
+                'glitch_file': 'GLITCH-ansible-oracle.csv'
+            },
+            'puppet': {
+                'file_extensions': ['.pp'],
+                'glitch_file': 'GLITCH-puppet-oracle.csv'
+            }
         }
         
     def load_glitch_detections(self) -> pd.DataFrame:
-        """Load GLITCH detections from the Chef oracle dataset and filter 4 smells."""
-        glitch_file = self.data_dir / "iac_filter_training" / "GLITCH-chef-oracle.csv"
+        """Load GLITCH detections from the IaC oracle dataset and filter 4 smells."""
+        glitch_filename = self.iac_config[self.iac_tech]['glitch_file']
+        # First try the organized structure, then fall back to the old location
+        glitch_file = self.iac_data_dir / glitch_filename
+        if not glitch_file.exists():
+            # Fallback to old location for backward compatibility
+            glitch_file = self.data_dir / "iac_filter_training" / glitch_filename
         
         if not glitch_file.exists():
             raise FileNotFoundError(f"GLITCH detection file not found: {glitch_file}")
@@ -99,29 +125,29 @@ class ChefPseudoLabelExtractor:
     # =========================
     # Context extraction helpers
     # =========================
-    def find_chef_file(self, file_path: str) -> Optional[Path]:
-        """Find the actual Chef file location for a given file path from detection data."""
-        if not self.chef_files_dir.exists():
-            logger.warning(f"Chef files directory not found: {self.chef_files_dir}")
+    def find_iac_file(self, file_path: str) -> Optional[Path]:
+        """Find the actual IaC file location for a given file path from detection data."""
+        if not self.iac_files_dir.exists():
+            logger.warning(f"{self.iac_tech.title()} files directory not found: {self.iac_files_dir}")
             return None
-        
+
         filename = Path(file_path).name
-        
+
         # Try direct match
-        direct_path = self.chef_files_dir / file_path
+        direct_path = self.iac_files_dir / file_path
         if direct_path.exists():
             return direct_path
-        
+
         # Search by filename
-        for found in self.chef_files_dir.rglob(filename):
+        for found in self.iac_files_dir.rglob(filename):
             if found.is_file():
                 return found
-        
-        logger.warning(f"Chef file not found: {file_path}")
+
+        logger.warning(f"{self.iac_tech.title()} file not found: {file_path}")
         return None
     
     def extract_lines_around(self, file_path: Path, target_line: int, context_lines: int = 5) -> Dict:
-        """Extract target line and surrounding context from a Chef file (±5 lines by default)."""
+        """Extract target line and surrounding context from an IaC file (±5 lines by default)."""
         try:
             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                 lines = f.readlines()
@@ -192,9 +218,9 @@ class ChefPseudoLabelExtractor:
         enhanced['context_success'] = False
         
         for idx, row in enhanced.iterrows():
-            path = self.find_chef_file(row['file_path'])
+            path = self.find_iac_file(row['file_path'])
             if path is None:
-                enhanced.at[idx, 'context_snippet'] = f"# Chef file not found: {row['file_path']}\n"
+                enhanced.at[idx, 'context_snippet'] = f"# {self.iac_tech.title()} file not found: {row['file_path']}\n"
                 continue
             enhanced.at[idx, 'file_found'] = True
             ctx = self.extract_lines_around(path, int(row['line_number']), context_lines)
@@ -218,16 +244,16 @@ class ChefPseudoLabelExtractor:
         for smell in self.target_smells:
             part = detections[detections['glitch_smell'] == smell]
             summary_rows.append({
-                'iac_tool': 'chef',
+                'iac_tool': self.iac_tech,
                 'smell_category': self.smell_display_names[smell],
                 'glitch_smell': smell,
                 'total_detections': len(part),
                 'files_affected': part['file_path'].nunique()
             })
             smell_safe = re.sub(r"[^a-z0-9]+", "_", smell.lower()).strip('_')
-            (output_dir / f"chef_{smell_safe}_detections.csv").write_text(part.to_csv(index=False))
-            logger.info(f"Saved {len(part)} detections to {(output_dir / f'chef_{smell_safe}_detections.csv')}\n       ")
-        pd.DataFrame(summary_rows).to_csv(output_dir / "chef_pseudo_label_summary.csv", index=False)
+            (output_dir / f"{self.iac_tech}_{smell_safe}_detections.csv").write_text(part.to_csv(index=False))
+            logger.info(f"Saved {len(part)} detections to {(output_dir / f'{self.iac_tech}_{smell_safe}_detections.csv')}\n       ")
+        pd.DataFrame(summary_rows).to_csv(output_dir / f"{self.iac_tech}_pseudo_label_summary.csv", index=False)
     
     def save_context_outputs(self, enhanced: pd.DataFrame, output_dir: Path) -> None:
         """Save context-enhanced CSV per smell (no combined CSV/JSONL)."""
@@ -237,8 +263,8 @@ class ChefPseudoLabelExtractor:
         for smell in self.target_smells:
             part = enhanced[enhanced['glitch_smell'] == smell]
             smell_safe = re.sub(r"[^a-z0-9]+", "_", smell.lower()).strip('_')
-            part.to_csv(output_dir / f"chef_{smell_safe}_detections_with_context.csv", index=False)
-        
+            part.to_csv(output_dir / f"{self.iac_tech}_{smell_safe}_detections_with_context.csv", index=False)
+
         logger.info(f"Saved per-smell context-enhanced CSVs to {output_dir}")
     
     # =========================
@@ -246,7 +272,8 @@ class ChefPseudoLabelExtractor:
     # =========================
     def run(self, output_dir: Optional[Path] = None, context_lines: int = 5) -> Dict[str, Path]:
         if output_dir is None:
-            output_dir = self.project_root / "experiments" / "iac_filter_training" / "data"
+            # Use the new organized structure
+            output_dir = self.project_root / "experiments" / "iac_filter_training" / "data" / self.iac_tech
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         
@@ -265,24 +292,34 @@ class ChefPseudoLabelExtractor:
         self.save_context_outputs(enhanced, output_dir)
         
         return {
-            'summary_csv': output_dir / "chef_pseudo_label_summary.csv"
+            'summary_csv': output_dir / f"{self.iac_tech}_pseudo_label_summary.csv"
         }
 
 
 def main():
-    """Main function to extract Chef detections for pseudo-labeling."""
+    """Main function to extract IaC detections for pseudo-labeling."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Extract IaC detections for pseudo-labeling")
+    parser.add_argument("--iac-tech", type=str, default="chef", choices=["chef", "ansible", "puppet"],
+                       help="IaC technology to process")
+    parser.add_argument("--context-lines", type=int, default=5,
+                       help="Number of context lines around each detection")
+
+    args = parser.parse_args()
+
     project_root = Path(__file__).parent.parent.parent
-    extractor = ChefPseudoLabelExtractor(project_root)
-    
-    logger.info("Starting Chef pseudo-label detection extraction (with context)")
-    
+    extractor = IaCPseudoLabelExtractor(project_root, args.iac_tech)
+
+    logger.info(f"Starting {args.iac_tech.title()} pseudo-label detection extraction (with context)")
+
     try:
-        outputs = extractor.run()
+        outputs = extractor.run(context_lines=args.context_lines)
         logger.info(f"Outputs written: {outputs}")
     except Exception as e:
         logger.error(f"Failed to extract detections: {e}")
         raise
-    
+
     logger.info("Detection extraction completed!")
 
 

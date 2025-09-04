@@ -1,11 +1,12 @@
 """
-Chef LLM Post-Filter (Lightweight) for IaC Filter Training
+IaC LLM Post-Filter (Lightweight) for IaC Filter Training
 
 - Reuses existing llm_postfilter modules by importing them (no edits there)
 - Loads context-enhanced detection CSVs from extractor outputs
 - Uses static-analysis-rules prompts and ±5-line context (already extracted)
 - Runs an LLM (default: OpenAI gpt-4o-mini; switchable to Anthropic Claude 3.7)
-- Stores decision and confidence per detection; keeps YES, drops NO, conservatively keeps missing
+- Supports Chef, Ansible, and Puppet IaC technologies
+- Stores decision per detection; keeps YES, drops NO, conservatively keeps missing
 - Writes concise outputs to experiments/iac_filter_training/data/llm_results
 - Logs prompts sent to LLMs and raw responses for debugging
 """
@@ -59,10 +60,11 @@ def _infer_iac_tech(file_path: str) -> str:
 
 
 
-class ChefLLMPostFilter:
+class IaCLLMPostFilter:
     def __init__(
         self,
         project_root: Path,
+        iac_tech: str = "chef",
         provider: str = Provider.OPENAI.value,
         model: str = "gpt-4o-mini",
         api_key: Optional[str] = None,
@@ -73,7 +75,8 @@ class ChefLLMPostFilter:
         results_dir: Optional[Path] = None,
     ):
         self.project_root = Path(project_root)
-        self.data_dir = Path(data_dir) if data_dir else (self.project_root / "experiments" / "iac_filter_training" / "data")
+        self.iac_tech = iac_tech.lower()
+        self.data_dir = Path(data_dir) if data_dir else (self.project_root / "experiments" / "iac_filter_training" / "data" / self.iac_tech)
         self.results_dir = Path(results_dir) if results_dir else (self.data_dir / "llm_results")
         self.results_dir.mkdir(parents=True, exist_ok=True)
 
@@ -84,7 +87,7 @@ class ChefLLMPostFilter:
         self.client = create_llm_client(provider=provider, model=model, api_key=api_key, base_url=base_url)
         # Optional cap for sanity checks
         self.max_samples = max_samples
-        logger.info(f"Post-filter using provider={provider}, model={model}, template={prompt_template}, max_samples={max_samples}")
+        logger.info(f"Post-filter for {self.iac_tech.title()} using provider={provider}, model={model}, template={prompt_template}, max_samples={max_samples}")
         logger.info(f"Data dir: {self.data_dir} | Results dir: {self.results_dir}")
 
     def _load_detection_file(self, path: Path) -> pd.DataFrame:
@@ -205,15 +208,17 @@ class ChefLLMPostFilter:
 
     def run_on_all_smells(self) -> List[Dict[str, Path]]:
         outputs: List[Dict[str, Path]] = []
-        for path in sorted(self.data_dir.glob("chef_*_detections_with_context.csv")):
+        pattern = f"{self.iac_tech}_*_detections_with_context.csv"
+        for path in sorted(self.data_dir.glob(pattern)):
             logger.info(f"Running post-filter on {path.name}")
             outputs.append(self.run_on_file(path))
-        logger.info("Post-filter completed for all smells")
+        logger.info(f"Post-filter completed for all {self.iac_tech} smells")
         return outputs
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Chef LLM Post-Filter Runner")
+    parser = argparse.ArgumentParser(description="IaC LLM Post-Filter Runner")
+    parser.add_argument("--iac-tech", type=str, default="chef", choices=["chef", "ansible", "puppet"], help="IaC technology to process")
     parser.add_argument("--provider", type=str, default=Provider.OPENAI.value, choices=[p.value for p in Provider], help="LLM provider")
     parser.add_argument("--model", type=str, default="gpt-4o-mini", help="LLM model name")
     parser.add_argument("--api-key", type=str, default=None, help="API key (falls back to env vars)")
@@ -233,8 +238,9 @@ def main():
     # Resolve API key fallback
     api_key = args.api_key or os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY") or os.getenv("OPENAI_COMPATIBLE_API_KEY")
 
-    runner = ChefLLMPostFilter(
+    runner = IaCLLMPostFilter(
         project_root,
+        iac_tech=args.iac_tech,
         provider=args.provider,
         model=args.model,
         api_key=api_key,
