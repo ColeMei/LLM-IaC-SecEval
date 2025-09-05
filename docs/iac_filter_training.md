@@ -13,25 +13,52 @@ Objective: Build train/validation/test datasets for Chef, Ansible, and Puppet us
 - Input: `data/iac_filter_training/GLITCH-{iac_tech}-oracle.csv`
 - Smells covered: Hard-coded secret, Suspicious comment, Use of weak cryptography algorithms, Use of HTTP without SSL/TLS
 
-3. Run LLM post-filter → pseudo-label TP/FP decisions
+3. Sample detections upfront
+
+- Targets based on test set sizes: Chef(675), Puppet(963), Ansible(432) = 2,070 total
+- Preserves GLITCH's natural smell distribution within each technology
+- Output: `GLITCH-{iac_tech}-oracle_sampled.csv`
+
+4. Run LLM post-filter → pseudo-label TP/FP decisions
 
 - Default: `gpt-4o-mini` for smoke tests; switch to Claude 4.0 for production
 - Prompt style: `static_analysis_rules`
 - Output: per-smell CSVs with decisions, plus prompt/response logs
 
-4. Format dataset into JSONL (HF-ready) and split train/val/test
+5. Format dataset into JSONL (HF-ready) and split train/val/test
 
-5. Spot-check random samples manually to estimate error rate
+6. Spot-check random samples manually to estimate error rate
 
 ---
 
 ### Files and Usage
 
+#### 0. Sample detections upfront
+
+`src/iac_filter_training/detection_sampler.py`
+
+- Samples GLITCH detections to meet exact target counts while preserving natural smell proportions
+- Targets: Chef(675), Puppet(963), Ansible(432) = 2,070 total train/val samples
+- Maintains GLITCH's natural distribution within each technology
+
+Run:
+
+```bash
+# Sample all technologies
+python src/iac_filter_training/detection_sampler.py
+
+# Sample single technology
+python src/iac_filter_training/detection_sampler.py --iac-tech chef
+```
+
+Outputs: `data/iac_filter_training/GLITCH-{iac_tech}-oracle_sampled.csv`
+
 #### 1. Extract detections + context (±5 lines)
 
 `src/iac_filter_training/extractor.py`
 
-- Loads GLITCH detections, filters four smells, adds unique IDs
+- Loads GLITCH detections
+- Filters four smells, adds unique IDs
 - Finds IaC files and wraps target line with ±5 lines context
 - Supports Chef, Ansible, and Puppet with `--iac-tech` parameter
 
@@ -41,10 +68,10 @@ Run:
 # For Chef
 python src/iac_filter_training/extractor.py --iac-tech chef
 
-# For Ansible (when data available)
+# For Ansible
 python src/iac_filter_training/extractor.py --iac-tech ansible
 
-# For Puppet (when data available)
+# For Puppet
 python src/iac_filter_training/extractor.py --iac-tech puppet
 ```
 
@@ -107,10 +134,10 @@ Run:
 # For Chef
 python src/iac_filter_training/dataset_formatter.py --iac-tech chef
 
-# For Ansible (when data available)
+# For Ansible
 python src/iac_filter_training/dataset_formatter.py --iac-tech ansible
 
-# For Puppet (when data available)
+# For Puppet
 python src/iac_filter_training/dataset_formatter.py --iac-tech puppet
 ```
 
