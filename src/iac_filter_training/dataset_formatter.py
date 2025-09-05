@@ -1,92 +1,224 @@
 """
-Dataset Formatter for IaC Pseudo-Labeled Data
+IaC Dataset Formatter
 
-Converts LLM post-filter results into JSONL/HuggingFace format for training.
-Supports Chef, Ansible, and Puppet IaC technologies.
-Maps available data to the specified template structure.
+Converts LLM-filtered results into JSONL format for training.
+Supports stratified sampling to maintain GLITCH proportions.
 """
 
 import json
-import pandas as pd
+import random
+import re
+from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Set
+
+import pandas as pd
 import argparse
 import logging
-import re
+
+# Constants
+TRAIN_VAL_RATIO = 8 / 9  # 8:1 train/val split
+CONTEXT_LINES = 5
+SUPPORTED_TECHS = ["chef", "ansible", "puppet"]
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
 class IaCDatasetFormatter:
-    def __init__(self, data_dir: Path, results_dir: Path, output_dir: Path, iac_tech: str = "chef"):
+    """Formatter for IaC pseudo-labeled datasets with stratified sampling."""
+
+    def __init__(self, data_dir: Path, results_dir: Path, output_dir: Path,
+                 iac_tech: str = "chef", combined: bool = False):
+        self.iac_tech = iac_tech.lower()
+        self.combined = combined
         self.data_dir = Path(data_dir)
         self.results_dir = Path(results_dir)
         self.output_dir = Path(output_dir)
-        self.iac_tech = iac_tech.lower()
 
-        # Use the new organized structure by default
-        if str(data_dir) == "experiments/iac_filter_training/data":
-            self.data_dir = Path(data_dir) / self.iac_tech
-        if str(results_dir) == "experiments/iac_filter_training/data/llm_results":
-            self.results_dir = Path(data_dir) / self.iac_tech / "llm_results"
-        if str(output_dir) == "experiments/iac_filter_training/data/formatted_dataset":
-            self.output_dir = Path(data_dir) / self.iac_tech / "formatted_dataset"
+        # Setup directory structure
+        if self.combined:
+            self._setup_combined_dirs()
+        else:
+            self._setup_single_tech_dirs()
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
-    def _extract_detection_span(self, line_number: int, context_lines: int = 5) -> List[int]:
-        """Estimate detection span based on line number and context window"""
-        start = max(1, line_number - context_lines)
-        end = line_number + context_lines
-        return [start, end]
+    def _setup_combined_dirs(self):
+        """Setup directories for combined multi-technology mode."""
+        base_path = Path("experiments/iac_filter_training/data")
+        self.tech_dirs = {}
+        self.tech_results_dirs = {}
+        self.tech_output_dirs = {}
+
+        for tech in SUPPORTED_TECHS:
+            self.tech_dirs[tech] = self._resolve_path(self.data_dir, base_path, tech)
+            self.tech_results_dirs[tech] = self._resolve_path(self.results_dir, base_path, tech, "llm_results")
+            self.tech_output_dirs[tech] = self._resolve_path(self.output_dir, base_path, tech, "formatted_dataset")
+
+    def _setup_single_tech_dirs(self):
+        """Setup directories for single technology mode."""
+        base_path = Path("experiments/iac_filter_training/data")
+        self.data_dir = self._resolve_path(self.data_dir, base_path, self.iac_tech)
+        self.results_dir = self._resolve_path(self.results_dir, base_path, self.iac_tech, "llm_results")
+        self.output_dir = self._resolve_path(self.output_dir, base_path, self.iac_tech, "formatted_dataset")
+
+    def _resolve_path(self, provided: Path, base: Path, tech: str, subdir: str = "") -> Path:
+        """Resolve directory path with fallback to organized structure."""
+        if str(provided) == str(base / (subdir or "")):
+            return base / tech / (subdir or "")
+        return provided / tech / (subdir or "") if subdir else provided / tech
+
+    def _stratified_train_val_split(self, samples: List[Dict], train_size: int, val_size: int) -> Tuple[List[Dict], List[Dict]]:
+        """Perform stratified split to maintain GLITCH proportions."""
+        groups = self._group_samples_by_tech_smell(samples)
+        logger.info(f"Stratified split across {len(groups)} groups:")
+
+        train_samples, val_samples = [], []
+        total_train, total_val = 0, 0
+
+        for group_key, group_samples in groups.items():
+            group_train, group_val = self._allocate_group_samples(
+                group_samples, train_size, val_size, total_train, total_val
+            )
+            train_samples.extend(group_train)
+            val_samples.extend(group_val)
+
+            total_train += len(group_train)
+            total_val += len(group_val)
+
+            group_size = len(group_samples)
+            logger.info(f"  {group_key}: {group_size} total → {len(group_train)} train, {len(group_val)} val")
+
+        # Handle remaining samples
+        train_samples, val_samples = self._handle_remaining_samples(
+            samples, train_samples, val_samples, train_size, val_size
+        )
+
+        logger.info(f"Stratified split complete: {len(train_samples)} train, {len(val_samples)} val")
+        return train_samples, val_samples
+
+    def _group_samples_by_tech_smell(self, samples: List[Dict]) -> Dict[str, List[Dict]]:
+        """Group samples by technology and smell type."""
+        groups = defaultdict(list)
+        for sample in samples:
+            tech = self._extract_technology(sample.get('file', ''))
+            smell = sample.get('smell', 'unknown')
+            group_key = f"{tech}_{smell}"
+            groups[group_key].append(sample)
+        return groups
+
+    def _extract_technology(self, file_path: str) -> str:
+        """Extract technology from file path."""
+        file_lower = file_path.lower()
+        for tech in SUPPORTED_TECHS:
+            if tech in file_lower:
+                return tech
+        return 'unknown'
+
+    def _allocate_group_samples(self, group_samples: List[Dict], train_size: int, val_size: int,
+                               total_train: int, total_val: int) -> Tuple[List[Dict], List[Dict]]:
+        """Allocate samples for a single group maintaining proportions."""
+        group_size = len(group_samples)
+        group_train_size = round(group_size * TRAIN_VAL_RATIO)
+        group_val_size = group_size - group_train_size
+
+        # Handle small groups
+        if group_size <= 2:
+            group_train_size, group_val_size = self._handle_small_group(
+                group_size, total_train, total_val, train_size, val_size
+            )
+
+        # Final quota adjustments
+        group_train_size = max(0, min(group_train_size, train_size - total_train))
+        group_val_size = max(0, min(group_val_size, val_size - total_val))
+
+        # Adjust to fit available samples
+        if group_train_size + group_val_size > group_size:
+            if group_train_size > group_val_size:
+                group_train_size = group_size
+                group_val_size = 0
+            else:
+                group_val_size = group_size
+                group_train_size = 0
+
+        random.shuffle(group_samples)
+        return (group_samples[:group_train_size],
+                group_samples[group_train_size:group_train_size + group_val_size])
+
+    def _handle_small_group(self, group_size: int, total_train: int, total_val: int,
+                           train_size: int, val_size: int) -> Tuple[int, int]:
+        """Handle allocation for small groups (1-2 samples)."""
+        if group_size == 1:
+            return (1, 0) if total_val >= val_size else (0, 1)
+        elif group_size == 2:
+            if total_train < train_size and total_val < val_size:
+                return (1, 1)
+            elif total_train < train_size:
+                return (2, 0)
+            else:
+                return (0, 2)
+
+    def _handle_remaining_samples(self, all_samples: List[Dict], train_samples: List[Dict],
+                                val_samples: List[Dict], train_size: int, val_size: int) -> Tuple[List[Dict], List[Dict]]:
+        """Handle any samples not allocated during stratified split."""
+        remaining = [s for s in all_samples if s not in train_samples and s not in val_samples]
+        if not remaining:
+            return train_samples, val_samples
+
+        random.shuffle(remaining)
+        train_needed = train_size - len(train_samples)
+        val_needed = val_size - len(val_samples)
+
+        if train_needed > 0:
+            train_samples.extend(remaining[:train_needed])
+            remaining = remaining[train_needed:]
+
+        if val_needed > 0 and remaining:
+            val_samples.extend(remaining[:val_needed])
+
+        return train_samples, val_samples
+
+    def _extract_detection_span(self, line_number: int) -> List[int]:
+        """Get detection span around target line."""
+        start = max(1, line_number - CONTEXT_LINES)
+        return [start, line_number + CONTEXT_LINES]
     
     def _clean_context_snippet(self, context: str) -> str:
-        """Clean the context snippet to remove file headers and line numbers"""
+        """Clean context by removing headers and line numbers."""
         if not context:
             return ""
         
-        lines = context.split('\n')
-        cleaned_lines = []
-        
-        for line in lines:
-            # Skip file header lines
-            if line.startswith('# Chef file:') or line.startswith('# Target line:'):
+        lines = []
+        for line in context.split('\n'):
+            # Skip headers
+            if line.startswith(('# Chef file:', '# Target line:')):
                 continue
-            # Remove line numbers and arrows, keep actual code
+            # Extract code from target line or numbered lines
             if '>>>' in line:
-                # Extract just the code part after the arrow
-                code_part = line.split('>>>', 1)[1].strip()
-                cleaned_lines.append(code_part)
-            elif line.strip().startswith('     ') and ':' in line:
-                # Extract code after line number
+                lines.append(line.split('>>>', 1)[1].strip())
+            elif '     ' in line and ':' in line:
                 parts = line.split(':', 1)
                 if len(parts) > 1:
-                    cleaned_lines.append(parts[1].strip())
+                    lines.append(parts[1].strip())
             else:
-                # Keep other lines as-is
-                cleaned_lines.append(line.strip())
+                lines.append(line.strip())
         
-        return '\n'.join(cleaned_lines)
+        return '\n'.join(lines)
     
     def _extract_target_content(self, context: str) -> str:
-        """Extract just the target line content from context, without leading line numbers"""
+        """Extract target line content without line numbers."""
         if not context:
             return ""
         
-        lines = context.split('\n')
-        for line in lines:
+        for line in context.split('\n'):
             if '>>>' in line:
-                # Extract the target line (marked with >>>)
                 code_part = line.split('>>>', 1)[1].strip()
-                # Strip a leading line-number pattern like `123:` if present
-                code_part = re.sub(r"^\d+:\s*", "", code_part)
-                return code_part
-        
+                return re.sub(r"^\d+:\s*", "", code_part)
         return ""
     
     def _normalize_smell_name(self, smell_category: str) -> str:
-        """Convert smell category to normalized format"""
+        """Normalize smell category names."""
         mapping = {
             'Hard-coded secret': 'hard_coded_secret',
             'Suspicious comment': 'suspicious_comment', 
@@ -95,57 +227,43 @@ class IaCDatasetFormatter:
         }
         return mapping.get(smell_category, smell_category.lower().replace(' ', '_'))
     
-    def _get_prompt_template_name(self, prompt_style: str) -> str:
-        """Get the prompt template name"""
-        return f"static-analysis-filtering-{prompt_style}-v1"
-    
     def _choose_content(self, row: pd.Series) -> str:
-        """Prefer CSV target_content; else extract from context, and strip leading line numbers."""
+        """Choose content from target_content or extract from context."""
         raw = str(row.get('target_content') or '').strip()
         if raw:
             return re.sub(r"^\d+:\s*", "", raw)
-        # Fallback to parse from context snippet
-        extracted = self._extract_target_content(str(row.get('context_snippet') or ''))
-        return re.sub(r"^\d+:\s*", "", extracted)
+        return self._extract_target_content(str(row.get('context_snippet') or ''))
     
     def format_single_file(self, csv_path: Path, prompts_path: Path, model_name: str = "gpt-4o-mini") -> List[Dict]:
-        """Format a single LLM filtered CSV file into JSONL format"""
-        # Load data
+        """Format LLM filtered CSV into JSONL samples."""
         df = pd.read_csv(csv_path)
-        with open(prompts_path, 'r') as f:
+        with open(prompts_path) as f:
             prompts_data = json.load(f)
         
-        # Create prompts lookup
-        prompts_lookup = {}
-        for interaction in prompts_data.get('interactions', []):
-            detection_id = interaction['detection_id']
-            prompts_lookup[detection_id] = {
+        # Build prompts lookup
+        prompts_lookup = {
+            interaction['detection_id']: {
                 'prompt': interaction['prompt'],
-                'raw_response': interaction['response']['raw']
+                'raw_response': interaction.get('response', {}).get('raw_response') or
+                               interaction.get('response', {}).get('raw', '')
+            }
+            for interaction in prompts_data.get('interactions', [])
             }
         
-        formatted_samples = []
-        
+        samples = []
         for _, row in df.iterrows():
             detection_id = row['detection_id']
             prompts_info = prompts_lookup.get(detection_id, {})
             
-            # Extract file path without epos- prefix
-            file_path = row['file_path']
-            if file_path.startswith('epos-'):
-                file_path = file_path[5:]  # Remove epos- prefix
-            
-            # Determine label based on LLM decision
+            # Clean file path
+            file_path = row['file_path'][5:] if row['file_path'].startswith('epos-') else row['file_path']
+
+            # Determine label
             llm_decision = row.get('llm_decision', '')
-            if llm_decision == 'YES':
-                label = "TP"  # True Positive
-            elif llm_decision == 'NO':
-                label = "FP"  # False Positive
-            else:
-                logger.warning(f"Unknown LLM decision '{llm_decision}' for detection {detection_id}, skipping")
+            if llm_decision not in ('YES', 'NO'):
+                logger.warning(f"Unknown LLM decision '{llm_decision}' for {detection_id}, skipping")
                 continue
             
-            # Format the sample according to template
             sample = {
                 "smell": self._normalize_smell_name(row['smell_category']),
                 "file": file_path,
@@ -154,24 +272,33 @@ class IaCDatasetFormatter:
                 "detection_span": self._extract_detection_span(int(row['line_number'])),
                 "with_context": self._clean_context_snippet(row.get('context_snippet', '')),
                 "with_prompt": prompts_info.get('prompt', ''),
-                "label": label,
+                "label": "TP" if llm_decision == 'YES' else "FP",
                 "source": model_name
             }
+            samples.append(sample)
             
-            formatted_samples.append(sample)
-        
-        return formatted_samples
+        return samples
     
     def format_all_files(self) -> Dict[str, List[Dict]]:
-        """Format all LLM filtered files into JSONL format"""
+        """Format all LLM filtered files into samples."""
         all_samples = {}
         
-        # Find all LLM filtered CSV files for the specific IaC technology
-        pattern = f"{self.iac_tech}_*_llm_filtered.csv"
-        for csv_path in self.results_dir.glob(pattern):
+        if self.combined:
+            for tech in SUPPORTED_TECHS:
+                logger.info(f"\n=== Processing {tech.upper()} ===")
+                self._process_tech_files(tech, all_samples)
+        else:
+            self._process_tech_files(self.iac_tech, all_samples)
+
+        return all_samples
+
+    def _process_tech_files(self, tech: str, all_samples: Dict[str, List[Dict]]):
+        """Process files for a specific technology."""
+        results_dir = self.tech_results_dirs[tech] if self.combined else self.results_dir
+        pattern = f"{tech}_*_llm_filtered.csv"
+
+        for csv_path in results_dir.glob(pattern):
             smell_name = csv_path.stem.replace('_llm_filtered', '')
-            
-            # Find corresponding prompts file
             prompts_path = csv_path.parent / f"{smell_name}_prompts_and_responses.json"
             
             if not prompts_path.exists():
@@ -180,13 +307,14 @@ class IaCDatasetFormatter:
             
             logger.info(f"Formatting {csv_path.name}")
             samples = self.format_single_file(csv_path, prompts_path)
-            all_samples[smell_name] = samples
+
+            # Use tech prefix in combined mode
+            key = f"{tech}_{smell_name}" if self.combined else smell_name
+            all_samples[key] = samples
             
             tp_count = sum(1 for s in samples if s['label'] == 'TP')
             fp_count = sum(1 for s in samples if s['label'] == 'FP')
-            logger.info(f"Generated {len(samples)} samples for {smell_name} (TP: {tp_count}, FP: {fp_count})")
-        
-        return all_samples
+            logger.info(f"Generated {len(samples)} samples for {key} (TP: {tp_count}, FP: {fp_count})")
     
     def save_jsonl(self, samples: List[Dict], output_path: Path):
         """Save samples to JSONL file"""
@@ -197,97 +325,131 @@ class IaCDatasetFormatter:
     
     def save_train_val_split(self, all_samples: Dict[str, List[Dict]],
                            train_size: Optional[int] = None, val_size: Optional[int] = None):
-        """Split samples into train/val sets using 8:1 ratio by default, excluding test files"""
-        # Combine all samples
-        all_combined = []
-        for smell_name, samples in all_samples.items():
-            for sample in samples:
-                all_combined.append(sample)
+        """Split samples into train/val sets with stratified sampling."""
+        # Combine and filter samples
+        all_combined = self._combine_and_filter_samples(all_samples)
 
-        # Filter out test files to prevent data leakage
+        # Calculate sizes
+        train_size, val_size = self._calculate_split_sizes(all_combined, train_size, val_size)
+
+        # Stratified split
+        train_samples, val_samples = self._stratified_train_val_split(all_combined, train_size, val_size)
+
+        # Save files
+        train_path, val_path = self._save_split_files(train_samples, val_samples)
+
+        # Save summary
+        summary_path = self._save_dataset_summary(all_combined, train_samples, val_samples)
+
+        return train_path, val_path, summary_path
+
+    def _combine_and_filter_samples(self, all_samples: Dict[str, List[Dict]]) -> List[Dict]:
+        """Combine all samples and filter out test files."""
+        all_combined = [sample for samples in all_samples.values() for sample in samples]
+
         test_files = self._load_test_files()
         if test_files:
             logger.info(f"Filtering out {len(test_files)} test files to prevent data leakage...")
             original_count = len(all_combined)
-            all_combined = [sample for sample in all_combined if sample['file'] not in test_files]
-            filtered_count = original_count - len(all_combined)
-            logger.info(f"Removed {filtered_count} samples from test files")
+            all_combined = [s for s in all_combined if s['file'] not in test_files]
+            logger.info(f"Removed {original_count - len(all_combined)} samples from test files")
 
-        total_samples = len(all_combined)
         tp_count = sum(1 for s in all_combined if s['label'] == 'TP')
         fp_count = sum(1 for s in all_combined if s['label'] == 'FP')
-        logger.info(f"Final samples for train/val: {total_samples} (TP: {tp_count}, FP: {fp_count})")
-        
-        # Auto-calculate sizes using 8:1 ratio if not specified
+        logger.info(f"Final samples: {len(all_combined)} (TP: {tp_count}, FP: {fp_count})")
+
+        return all_combined
+
+    def _calculate_split_sizes(self, samples: List[Dict], train_size: Optional[int],
+                             val_size: Optional[int]) -> Tuple[int, int]:
+        """Calculate train/val split sizes using 8:1 ratio."""
+        total_samples = len(samples)
+
         if train_size is None or val_size is None:
-            # Use 8:1 ratio (8/9 for train, 1/9 for val)
-            auto_train_size = int(total_samples * 8 / 9)
-            auto_val_size = total_samples - auto_train_size
-            
-            if train_size is None:
-                train_size = auto_train_size
-            if val_size is None:
-                val_size = auto_val_size
-            
+            train_size = round(total_samples * TRAIN_VAL_RATIO)
+            val_size = total_samples - train_size
             logger.info(f"Auto-calculated sizes: train={train_size}, val={val_size} (8:1 ratio)")
         
-        # Ensure we don't exceed available samples
         if train_size + val_size > total_samples:
-            logger.warning(f"Requested sizes ({train_size} + {val_size}) exceed available samples ({total_samples})")
-            train_size = int(total_samples * 8 / 9)
+            logger.warning(f"Requested sizes exceed available samples, adjusting...")
+            train_size = round(total_samples * TRAIN_VAL_RATIO)
             val_size = total_samples - train_size
-            logger.info(f"Adjusted to: train={train_size}, val={val_size}")
-        
-        # Split into train/val
-        train_samples = all_combined[:train_size]
-        val_samples = all_combined[train_size:train_size + val_size]
-        
-        # Save train set
-        train_path = self.output_dir / f"{self.iac_tech}_train.jsonl"
-        self.save_jsonl(train_samples, train_path)
 
-        # Save val set
-        val_path = self.output_dir / f"{self.iac_tech}_val.jsonl"
+        return train_size, val_size
+
+    def _save_split_files(self, train_samples: List[Dict], val_samples: List[Dict]) -> Tuple[Path, Path]:
+        """Save train and val samples to JSONL files."""
+        if self.combined:
+            train_filename = "combined_train.jsonl"
+            val_filename = "combined_val.jsonl"
+        else:
+            train_filename = f"{self.iac_tech}_train.jsonl"
+            val_filename = f"{self.iac_tech}_val.jsonl"
+
+        train_path = self.output_dir / train_filename
+        val_path = self.output_dir / val_filename
+
+        self.save_jsonl(train_samples, train_path)
         self.save_jsonl(val_samples, val_path)
         
-        # Save train/val summary
+        return train_path, val_path
+
+    def _save_dataset_summary(self, all_samples: List[Dict], train_samples: List[Dict],
+                            val_samples: List[Dict]) -> Path:
+        """Save dataset summary with statistics."""
         summary = {
-            "iac_technology": self.iac_tech,
-            "total_samples": len(all_combined),
+            "iac_technology": "combined" if self.combined else self.iac_tech,
+            "total_samples": len(all_samples),
             "train_samples": len(train_samples),
             "val_samples": len(val_samples),
-            "smell_distribution": {}
+            "smell_distribution": {},
         }
 
-        # Count samples per smell
-        for sample in all_combined:
+        if self.combined:
+            summary["technologies_included"] = SUPPORTED_TECHS
+            summary["technology_distribution"] = {}
+
+        # Count distributions
+        for sample in all_samples:
             smell = sample['smell']
             summary["smell_distribution"][smell] = summary["smell_distribution"].get(smell, 0) + 1
+
+            if self.combined:
+                tech = self._extract_technology(sample.get('file', ''))
+                summary["technology_distribution"][tech] = summary["technology_distribution"].get(tech, 0) + 1
 
         summary_path = self.output_dir / "dataset_summary.json"
         with open(summary_path, 'w') as f:
             json.dump(summary, f, indent=2)
 
-        # Create test summary for this IaC technology (if test data exists)
-        test_file = self.data_dir / f"{self.iac_tech}_test.jsonl"
+        # Create test summaries
+        self._create_test_summaries()
+
+        logger.info(f"Dataset summary saved to {summary_path}")
+        return summary_path
+
+    def _create_test_summaries(self):
+        """Create test summaries for relevant technologies."""
+        if self.combined:
+            for tech in SUPPORTED_TECHS:
+                test_file = self.tech_dirs[tech] / f"{tech}_test.jsonl"
+                if test_file.exists():
+                    self._create_iac_test_summary(test_file)
+        else:
+            test_file = self.data_dir / f"{self.iac_tech}_test.jsonl"
         if test_file.exists():
             self._create_iac_test_summary(test_file)
-        
-        logger.info(f"Dataset summary saved to {summary_path}")
-        return train_path, val_path, summary_path
 
     def _create_iac_test_summary(self, test_file_path: Path):
-        """Create a test summary specific to this IaC technology."""
-        tp_count = 0
-        fp_count = 0
+        """Create test summary for a technology."""
+        tp_count = fp_count = 0
         smell_counts = {}
 
-        with open(test_file_path, 'r') as f:
+        with open(test_file_path) as f:
             for line in f:
                 if line.strip():
                     data = json.loads(line.strip())
                     label = data.get('label', '')
-
                     if label == 'TP':
                         tp_count += 1
                     elif label == 'FP':
@@ -314,80 +476,93 @@ class IaCDatasetFormatter:
         with open(test_summary_path, 'w') as f:
             json.dump(test_summary, f, indent=2)
 
-        logger.info(f"IaC-specific test summary saved to {test_summary_path}")
+        logger.info(f"Test summary saved to {test_summary_path}")
         logger.info(f"  - {total_samples} samples (TP: {tp_count}, FP: {fp_count}, Precision: {precision:.1%})")
 
     def _load_test_files(self) -> Set[str]:
-        """Load file names from test dataset to exclude from train/val sets."""
+        """Load test file names to exclude from train/val."""
         test_files = set()
-        test_file_path = self.output_dir / f"{self.iac_tech}_test.jsonl"
 
-        if test_file_path.exists():
-            try:
-                with open(test_file_path, 'r') as f:
-                    for line in f:
-                        if line.strip():
-                            data = json.loads(line.strip())
-                            file_path = data.get('file', '')
-                            if file_path:
-                                test_files.add(file_path)
-                logger.info(f"Loaded {len(test_files)} test files to exclude from train/val")
-            except Exception as e:
-                logger.warning(f"Could not load test files for filtering: {e}")
+        if self.combined:
+            for tech in SUPPORTED_TECHS:
+                test_file = self.tech_dirs[tech] / f"{tech}_test.jsonl"
+                if test_file.exists():
+                    self._load_test_files_from_jsonl(test_file, test_files)
+            if test_files:
+                logger.info(f"Loaded {len(test_files)} test files to exclude")
         else:
-            logger.info(f"No test file found at {test_file_path}, proceeding without filtering")
+            test_file = self.data_dir / f"{self.iac_tech}_test.jsonl"
+            if test_file.exists():
+                self._load_test_files_from_jsonl(test_file, test_files)
+            else:
+                logger.info("No test files found, proceeding without filtering")
 
         return test_files
+
+    def _load_test_files_from_jsonl(self, file_path: Path, test_files: Set[str]):
+        """Load test files from a JSONL file."""
+        try:
+            with open(file_path) as f:
+                for line in f:
+                    if line.strip():
+                        data = json.loads(line.strip())
+                        file_path_data = data.get('file', '')
+                        if file_path_data:
+                            test_files.add(file_path_data)
+        except Exception as e:
+            logger.warning(f"Could not load test files from {file_path}: {e}")
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Format IaC pseudo-labeled data into JSONL")
-    parser.add_argument("--iac-tech", type=str, default="chef", choices=["chef", "ansible", "puppet"],
-                       help="IaC technology to process")
-    parser.add_argument("--data-dir", type=str, default="experiments/iac_filter_training/data",
-                       help="Input data directory")
-    parser.add_argument("--results-dir", type=str, default="experiments/iac_filter_training/data/llm_results",
-                       help="LLM results directory")
-    parser.add_argument("--output-dir", type=str, default="experiments/iac_filter_training/data/formatted_dataset",
-                       help="Output directory for JSONL files")
-    parser.add_argument("--train-size", type=int, default=None,
-                       help="Number of training samples (auto-calculated using 8:1 ratio if not specified)")
-    parser.add_argument("--val-size", type=int, default=None,
-                       help="Number of validation samples (auto-calculated using 8:1 ratio if not specified)")
+    parser.add_argument("--combined", action="store_true", help="Create combined dataset from all IaC technologies")
+    parser.add_argument("--iac-tech", type=str, default="chef", choices=SUPPORTED_TECHS,
+                       help="IaC technology to process (ignored when --combined is used)")
+    parser.add_argument("--data-dir", type=str, default="experiments/iac_filter_training/data")
+    parser.add_argument("--results-dir", type=str, default="experiments/iac_filter_training/data/llm_results")
+    parser.add_argument("--output-dir", type=str, default="experiments/iac_filter_training/data/formatted_dataset")
+    parser.add_argument("--train-size", type=int, help="Number of training samples (auto-calculated using 8:1 ratio if not specified)")
+    parser.add_argument("--val-size", type=int, help="Number of validation samples (auto-calculated using 8:1 ratio if not specified)")
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+    dataset_name = "Combined" if args.combined else args.iac_tech.title()
     
     formatter = IaCDatasetFormatter(
         data_dir=args.data_dir,
         results_dir=args.results_dir,
         output_dir=args.output_dir,
-        iac_tech=args.iac_tech
+        iac_tech=args.iac_tech,
+        combined=args.combined
     )
     
-    # Format all files
     all_samples = formatter.format_all_files()
-    
     if not all_samples:
         logger.error("No samples found to format!")
         return
     
-    # Save train/val split
     train_path, val_path, summary_path = formatter.save_train_val_split(
         all_samples, args.train_size, args.val_size
     )
 
-    print(f"\n{args.iac_tech.title()} dataset formatting complete!")
+    print(f"\n{dataset_name} dataset formatting complete!")
     print(f"Train: {train_path}")
     print(f"Val: {val_path}")
     print(f"Dataset Summary: {summary_path}")
 
-    # Check if test summary was created
-    test_summary_path = summary_path.parent / "test_summary.json"
-    if test_summary_path.exists():
-        print(f"Test Summary: {test_summary_path}")
+    # Print test summary paths
+    if args.combined:
+        test_summaries = [
+            str(summary_path.parent / f"../{tech}/formatted_dataset/test_summary.json")
+            for tech in SUPPORTED_TECHS
+            if (summary_path.parent / f"../{tech}/formatted_dataset/test_summary.json").exists()
+        ]
+        if test_summaries:
+            print(f"Test Summaries: {', '.join(test_summaries)}")
+    elif (summary_path.parent / "test_summary.json").exists():
+        print(f"Test Summary: {summary_path.parent / 'test_summary.json'}")
 
 
 if __name__ == "__main__":

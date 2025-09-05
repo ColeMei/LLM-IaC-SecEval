@@ -131,29 +131,34 @@ Behavior:
 - Loads per-smell `*_llm_filtered.csv` + matching `*_prompts_and_responses.json`
 - Emits JSONL with fields: smell, file, content, line, detection_span, with_context, with_prompt, label, source
 - Prevents data leakage by excluding test files from train/val sets
-- Auto-calculates train/val sizes (8:1 ratio) and writes `{iac_tech}_train.jsonl` and `{iac_tech}_val.jsonl`
+- Uses **stratified sampling** to maintain GLITCH's natural smell proportions within each technology
+- Auto-calculates train/val sizes (8:1 ratio) while preserving proportional distributions
+- Creates `{iac_tech}_train.jsonl` and `{iac_tech}_val.jsonl` with maintained proportions
 - Creates separate test summaries for each IaC technology
 
 Run:
 
 ```bash
-# For Chef
+# For single technology
 python src/iac_filter_training/dataset_formatter.py --iac-tech chef
 
-# For Ansible
-python src/iac_filter_training/dataset_formatter.py --iac-tech ansible
-
-# For Puppet
-python src/iac_filter_training/dataset_formatter.py --iac-tech puppet
+# For combined dataset from all technologies
+python src/iac_filter_training/dataset_formatter.py --combined
 ```
 
-Outputs (dir): `experiments/iac_filter_training/data/{iac_tech}/formatted_dataset/`
+Outputs for single technology (dir): `experiments/iac_filter_training/data/{iac_tech}/formatted_dataset/`
 
 - `{iac_tech}_train.jsonl`
 - `{iac_tech}_val.jsonl`
 - `{iac_tech}_test.jsonl` (if test data exists)
 - `dataset_summary.json` (train/val statistics)
 - `test_summary.json` (test statistics, if applicable)
+
+Outputs for combined dataset (dir): `experiments/iac_filter_training/data/formatted_dataset/`
+
+- `combined_train.jsonl` (1840 samples with maintained GLITCH proportions)
+- `combined_val.jsonl` (230 samples with maintained GLITCH proportions)
+- `dataset_summary.json` (combined statistics with technology and smell distributions)
 
 ---
 
@@ -170,6 +175,10 @@ experiments/iac_filter_training/data/
 │   │   ├── dataset_summary.json
 │   │   └── test_summary.json
 │   └── llm_results/        # LLM filtering results
-├── ansible/                # Ready for Ansible data
-└── puppet/                 # Ready for Puppet data
+├── ansible/                # Ansible workspace
+├── puppet/                 # Puppet workspace
+└── formatted_dataset/      # Combined dataset (when using --combined)
+    ├── combined_train.jsonl
+    ├── combined_val.jsonl
+    └── dataset_summary.json
 ```
