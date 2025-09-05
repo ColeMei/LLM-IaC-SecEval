@@ -109,7 +109,12 @@ class IaCDatasetFormatter:
         return groups
 
     def _extract_technology(self, file_path: str) -> str:
-        """Extract technology from file path."""
+        """Extract technology from file path or use dataset context."""
+        # For single technology mode, use the specified technology
+        if not self.combined:
+            return self.iac_tech
+
+        # For combined mode, try to detect from file path
         file_lower = file_path.lower()
         for tech in SUPPORTED_TECHS:
             if tech in file_lower:
