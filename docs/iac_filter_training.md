@@ -88,33 +88,39 @@ Outputs (dir): `experiments/iac_filter_training/data/{iac_tech}/`
 Key flags:
 
 - `--iac-tech` chef|ansible|puppet (default: chef)
-- `--provider` openai|anthropic|ollama|openai_compatible (default: openai)
+- `--provider` openai|anthropic|grok|ollama|openai_compatible (default: openai)
 - `--model` model name (default: gpt-4o-mini)
 - `--base-url` for openai_compatible/ollama
 - `--prompt-template` default: static_analysis_rules
 - `--max-samples` limit for quick runs
-- `--data-dir` input dir (auto-detected based on iac-tech)
-- `--results-dir` output dir (auto-detected based on iac-tech)
-- `--input` run on one `*_detections_with_context.csv`
+- `--data-dir` input dir (auto-detected)
+- `--results-dir` output dir (auto-detected)
+- `--input` run on single context CSV file
 
 Examples:
 
 ```bash
-# Quick sanity run on Chef (OpenAI cheap model)
-python src/iac_filter_training/post_filter.py --iac-tech chef --provider openai --model gpt-4o-mini --max-samples 30
+# OpenAI GPT-4o mini
+python src/iac_filter_training/post_filter.py --iac-tech chef --provider openai --model gpt-4o-mini
 
-# Run Anthropic Claude 3.7 on Chef data
-python src/iac_filter_training/post_filter.py --iac-tech chef --provider anthropic --model claude-3-7-sonnet-20250219
+# Anthropic Claude
+python src/iac_filter_training/post_filter.py --iac-tech chef --provider anthropic --model claude-3-5-sonnet-latest
 
-# Single-file run on Chef
-python src/iac_filter_training/post_filter.py --iac-tech chef --input chef_hardcoded_secret_detections_with_context.csv
+# xAI Grok
+python src/iac_filter_training/post_filter.py --iac-tech chef --provider grok --model grok-code-fast-1
+
+# OpenRouter (via openai_compatible)
+python src/iac_filter_training/post_filter.py --iac-tech chef --provider openai_compatible --model openai/gpt-4o-mini --base-url https://openrouter.ai/api/v1
+
+# Test run with limited samples
+python src/iac_filter_training/post_filter.py --iac-tech chef --max-samples 10
 ```
 
 Outputs (dir): `experiments/iac_filter_training/data/{iac_tech}/llm_results/`
 
 - `*_llm_filtered.csv` (adds: llm_decision, keep_detection)
 - `*_llm_summary.json`
-- `*_prompts_and_responses.json` (debug log: prompts + raw responses)
+- `*_prompts_and_responses.json` (debug log)
 
 #### 3. Format JSONL (HF-ready) and split train/val/test
 
