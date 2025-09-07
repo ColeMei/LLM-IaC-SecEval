@@ -239,11 +239,15 @@ class IaCDatasetFormatter:
             return re.sub(r"^\d+:\s*", "", raw)
         return self._extract_target_content(str(row.get('context_snippet') or ''))
     
-    def format_single_file(self, csv_path: Path, prompts_path: Path, model_name: str = "gpt-4o-mini") -> List[Dict]:
+    def format_single_file(self, csv_path: Path, prompts_path: Path, model_name: Optional[str] = None) -> List[Dict]:
         """Format LLM filtered CSV into JSONL samples."""
         df = pd.read_csv(csv_path)
         with open(prompts_path) as f:
             prompts_data = json.load(f)
+
+        # Detect model from summary file if not provided
+        if model_name is None:
+            model_name = self._detect_model_from_summary(prompts_path)
         
         # Build prompts lookup
         prompts_lookup = {
@@ -516,6 +520,27 @@ class IaCDatasetFormatter:
                             test_files.add(file_path_data)
         except Exception as e:
             logger.warning(f"Could not load test files from {file_path}: {e}")
+
+    def _detect_model_from_summary(self, prompts_path: Path) -> str:
+        """Detect model name from summary JSON file in the same directory."""
+        # Try to find summary file with same base name
+        base_name = prompts_path.stem.replace('_prompts_and_responses', '')
+        summary_path = prompts_path.parent / f"{base_name}_llm_summary.json"
+
+        if summary_path.exists():
+            try:
+                with open(summary_path) as f:
+                    summary_data = json.load(f)
+                    model = summary_data.get('model')
+                    if model:
+                        logger.info(f"Detected model '{model}' from {summary_path}")
+                        return model
+            except Exception as e:
+                logger.warning(f"Could not read model from {summary_path}: {e}")
+
+        # Fallback to default if summary file not found or invalid
+        logger.warning(f"Could not detect model from summary file, using default 'gpt-4o-mini'")
+        return "gpt-4o-mini"
 
 
 def parse_args():
